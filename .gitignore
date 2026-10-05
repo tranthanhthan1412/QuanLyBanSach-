@@ -1,0 +1,7 @@
+# Local tools and runtime noise (the website has no build step)
+node_modules/
+.tmp/
+*.log
+.DS_Store
+Thumbs.db
+desktop.ini

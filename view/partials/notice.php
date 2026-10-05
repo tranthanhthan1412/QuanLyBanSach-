@@ -1,0 +1,1 @@
+<div class="notice" role="note"><?= icon('info') ?><div><strong>Chế độ mô phỏng</strong><p><?= e($notice ?? 'Giao diện chưa kết nối backend. Nội dung bên dưới là dữ liệu mẫu cho đồ án, không phát sinh giao dịch thật.') ?></p></div></div>

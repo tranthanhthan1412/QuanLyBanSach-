@@ -1,0 +1,1 @@
+<div class="container page-content"><div class="empty-state"><span class="error-code">404</span><h1>Trang sách này chưa được mở</h1><p>Trang hoặc sản phẩm bạn tìm không tồn tại. Cùng trở lại và khám phá nhé.</p><a class="button" href="<?= e(url('products')) ?>">Khám phá sách <?= icon('arrow') ?></a></div></div>
