@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Controllers;
@@ -8,27 +9,87 @@ use App\Models\OrderModel;
 
 final class AccountController extends Controller
 {
-    public function index(): void
+    private function requireLogin(): array
     {
-        $this->render('account/index', ['title' => 'Tài khoản mẫu']);
+        if (empty($_SESSION['user'])) {
+            header('Location: ' . url('login'));
+            exit;
+        }
+
+        return $_SESSION['user'];
     }
 
-    public function orders(): void
+
+    /**
+     * Trang tài khoản
+     */
+    public function index(): void
     {
-        $this->render('account/orders', [
-            'title' => 'Đơn hàng mẫu',
-            'orders' => (new OrderModel())->all(),
+        $user = $this->requireLogin();
+
+        $this->render('account/index', [
+            'title' => 'Tài khoản',
+            'user' => $user
         ]);
     }
 
+
+    /**
+     * Danh sách đơn hàng
+     */
+    public function orders(): void
+    {
+        $user = $this->requireLogin();
+
+        $orderModel = new OrderModel();
+
+        $orders = $orderModel->getByUser(
+            (int)$user['id']
+        );
+
+        $this->render('account/orders', [
+            'title' => 'Đơn hàng',
+            'user' => $user,
+            'orders' => $orders
+        ]);
+    }
+
+
+    /**
+     * Chi tiết đơn hàng
+     */
     public function show(): void
     {
-        $order = (new OrderModel())->find(query('id'));
-        if ($order === null) {
-            $this->notFound();
+        $user = $this->requireLogin();
+
+        $orderId = (int)($_GET['id'] ?? 0);
+
+        if ($orderId <= 0) {
+            header('Location: ' . url('orders'));
+            exit;
+        }
+
+        $orderModel = new OrderModel();
+
+        $order = $orderModel->getById(
+            $orderId,
+            (int)$user['id']
+        );
+
+        if (!$order) {
+            http_response_code(404);
+
+            $this->render('errors/404', [
+                'title' => 'Không tìm thấy đơn hàng'
+            ]);
+
             return;
         }
 
-        $this->render('account/show', ['title' => 'Đơn ' . $order['id'], 'order' => $order]);
+        $this->render('account/order', [
+            'title' => 'Chi tiết đơn hàng',
+            'user' => $user,
+            'order' => $order
+        ]);
     }
 }
