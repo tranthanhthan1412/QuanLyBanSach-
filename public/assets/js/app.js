@@ -51,7 +51,7 @@ document.addEventListener('click', event => {
     const add = event.target.closest('[data-add-cart]');
     if (add) {
         const input = add.dataset.quantityInput ? document.getElementById(add.dataset.quantityInput) : null;
-        const quantity = input ? Math.min(20, Math.max(1, Math.trunc(Number(input.value)) || 1)) : 1;
+        const quantity = input ? Math.min(Number(input.max), Math.max(1, Math.trunc(Number(input.value)) || 1)) : 1;
         if (input) input.value = quantity;
         const result = cart.add(Number(add.dataset.addCart), quantity);
         notify(result.message);
@@ -59,16 +59,16 @@ document.addEventListener('click', event => {
     const step = event.target.closest('[data-quantity-step]');
     if (step) {
         const input = document.getElementById('product-quantity');
-        input.value = Math.min(20, Math.max(1, (Number(input.value) || 1) + Number(step.dataset.quantityStep)));
+        input.value = Math.min(Number(input.max), Math.max(1, (Number(input.value) || 1) + Number(step.dataset.quantityStep)));
         updateQuantityButtons();
     }
 });
 function updateQuantityButtons() {
     const input = document.getElementById('product-quantity');
     if (!input) return;
-    input.value = Math.min(20, Math.max(1, Math.trunc(Number(input.value)) || 1));
+    input.value = Math.min(Number(input.max), Math.max(1, Math.trunc(Number(input.value)) || 1));
     document.querySelector('[data-quantity-step="-1"]').disabled = Number(input.value) <= 1;
-    document.querySelector('[data-quantity-step="1"]').disabled = Number(input.value) >= 20;
+    document.querySelector('[data-quantity-step="1"]').disabled = Number(input.value) >= Number(input.max);
 }
 document.getElementById('product-quantity')?.addEventListener('change', updateQuantityButtons);
 updateQuantityButtons();
@@ -176,7 +176,7 @@ function renderSuccess() {
         return;
     }
     const totals = totalsFor(items);
-    target.innerHTML = `<div class="success-facts"><div class="summary-row"><span>Mã tham chiếu minh họa</span><strong>DEMO-PREVIEW</strong></div><div class="summary-row"><span>Thời gian thử</span><span>${escape(date.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }))}</span></div><div class="summary-row"><span>Người nhận</span><span>Khách hàng mẫu</span></div><div class="summary-row"><span>Thanh toán</span><span>COD · Mô phỏng</span></div><div class="summary-row"><span>Số lượng</span><span>${totals.count} cuốn</span></div><div class="summary-row"><span>Tổng cộng</span><strong>${money(totals.total)}</strong></div><p class="small muted">Thông tin bạn nhập đã được xóa khỏi form, không được lưu. Danh sách đơn trong tài khoản là dữ liệu mẫu độc lập.</p></div>`;
+    target.innerHTML = `<div class="success-facts"><div class="summary-row"><span>Mã tham chiếu minh họa</span><strong>DEMO-PREVIEW</strong></div><div class="summary-row"><span>Thời gian thử</span><span>${escape(date.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }))}</span></div><div class="summary-row"><span>Người nhận</span><span>Khách hàng mẫu</span></div><div class="summary-row"><span>Thanh toán</span><span>COD · Mô phỏng</span></div><div class="summary-row"><span>Số lượng</span><span>${totals.count} cuốn</span></div><div class="summary-row"><span>Tổng cộng</span><strong>${money(totals.total)}</strong></div><p class="small muted">Thông tin bạn nhập đã được xóa khỏi form, không được lưu. Đơn mô phỏng này không xuất hiện trong danh sách đơn hàng của tài khoản.</p></div>`;
 }
 
 function render() {

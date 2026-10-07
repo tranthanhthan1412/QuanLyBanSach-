@@ -14,6 +14,16 @@ final class ProductModel
         $this->db = $database->getConnection();
     }
 
+    private function normalize(array $product): array
+    {
+        $product['id'] = (int) $product['id'];
+        $product['stock'] = max(0, (int) $product['stock']);
+        $product['price'] = (float) $product['price'];
+        $product['category'] = (string) $product['category'];
+        $product['image'] = book_image($product['image']);
+        return $product;
+    }
+
     public function all(): array
     {
         $sql = "
@@ -21,6 +31,7 @@ final class ProductModel
                 s.maSach AS id,
                 s.tenSach AS title,
                 s.moTa AS description,
+                s.hinhAnh AS image,
                 s.giaTien AS price,
                 s.tonKho AS stock,
                 s.maTL AS category,
@@ -38,7 +49,7 @@ final class ProductModel
 
         $stmt = $this->db->query($sql);
 
-        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        return array_map([$this, 'normalize'], $stmt->fetchAll(\PDO::FETCH_ASSOC));
     }
 
     public function find(string $id): ?array
@@ -48,6 +59,7 @@ final class ProductModel
                 s.maSach AS id,
                 s.tenSach AS title,
                 s.moTa AS description,
+                s.hinhAnh AS image,
                 s.giaTien AS price,
                 s.tonKho AS stock,
                 s.maTL AS category,
@@ -69,7 +81,7 @@ final class ProductModel
 
         $product = $stmt->fetch(\PDO::FETCH_ASSOC);
 
-        return $product ?: null;
+        return $product ? $this->normalize($product) : null;
     }
 
     public function featured(int $limit = 8): array
@@ -81,6 +93,7 @@ final class ProductModel
                 s.maSach AS id,
                 s.tenSach AS title,
                 s.moTa AS description,
+                s.hinhAnh AS image,
                 s.giaTien AS price,
                 s.tonKho AS stock,
                 s.maTL AS category,
@@ -99,7 +112,7 @@ final class ProductModel
 
         $stmt = $this->db->query($sql);
 
-        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        return array_map([$this, 'normalize'], $stmt->fetchAll(\PDO::FETCH_ASSOC));
     }
 
     public function paginate(
@@ -127,13 +140,15 @@ final class ProductModel
         if ($search !== '') {
             $where[] = "
                 (
-                    s.tenSach LIKE :search
-                    OR tg.tenTG LIKE :search
-                    OR tl.tenTL LIKE :search
+                    s.tenSach LIKE :search_title
+                    OR tg.tenTG LIKE :search_author
+                    OR tl.tenTL LIKE :search_category
                 )
             ";
 
-            $params['search'] = '%' . $search . '%';
+            foreach (['search_title', 'search_author', 'search_category'] as $key) {
+                $params[$key] = '%' . $search . '%';
+            }
         }
 
         // Lọc thể loại
@@ -184,6 +199,7 @@ final class ProductModel
                 s.maSach AS id,
                 s.tenSach AS title,
                 s.moTa AS description,
+                s.hinhAnh AS image,
                 s.giaTien AS price,
                 s.tonKho AS stock,
                 s.maTL AS category,
@@ -204,7 +220,7 @@ final class ProductModel
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
 
-        $products = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        $products = array_map([$this, 'normalize'], $stmt->fetchAll(\PDO::FETCH_ASSOC));
 
         return compact(
             'products',
@@ -224,6 +240,7 @@ final class ProductModel
                 s.maSach AS id,
                 s.tenSach AS title,
                 s.moTa AS description,
+                s.hinhAnh AS image,
                 s.giaTien AS price,
                 s.tonKho AS stock,
                 s.maTL AS category,
@@ -249,6 +266,6 @@ final class ProductModel
             'id' => $product['id']
         ]);
 
-        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        return array_map([$this, 'normalize'], $stmt->fetchAll(\PDO::FETCH_ASSOC));
     }
 }

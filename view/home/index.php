@@ -23,7 +23,7 @@
             <?php foreach ($homeCategories as $category): ?>
             <a class="category-card" href="<?= e(url('products', ['category' => $category['slug']])) ?>">
                 <span class="category-icon" style="--category-color: <?= e($category['color']) ?>"><?= icon($category['icon']) ?></span>
-                <h3><?= e($category['name']) ?></h3><p><?= e($category['description']) ?></p><small><?= $category['product_count'] ?> tựa sách mẫu</small>
+                <h3><?= e($category['name']) ?></h3><p><?= e($category['description']) ?></p><small><?= $category['product_count'] ?> tựa sách</small>
             </a>
             <?php endforeach; ?>
         </div>

@@ -1,1 +1,1 @@
-<div class="container page-content"><div class="empty-state"><?= icon('info') ?><h1>Đây là giao diện mô phỏng</h1><p>Form chưa kết nối backend. Vui lòng bật JavaScript để thử tương tác ngay trên trình duyệt.</p><a class="button" href="<?= e(url()) ?>">Về trang chủ</a></div></div>
+<div class="container page-content"><div class="empty-state"><?= icon('info') ?><h1>Phương thức không được hỗ trợ</h1><p>Vui lòng sử dụng nút hoặc biểu mẫu trên website. Các form đặt hàng thử và nhận bản tin cần bật JavaScript.</p><a class="button" href="<?= e(url()) ?>">Về trang chủ</a></div></div>

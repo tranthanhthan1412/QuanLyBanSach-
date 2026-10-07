@@ -2,7 +2,12 @@
 
 declare(strict_types=1);
 
-session_start();
+session_start([
+    'use_strict_mode' => true,
+    'cookie_httponly' => true,
+    'cookie_samesite' => 'Lax',
+    'cookie_secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+]);
 
 define('ROOT_PATH', dirname(__DIR__));
 
@@ -33,8 +38,5 @@ spl_autoload_register(function (string $class): void {
 
 require ROOT_PATH . '/libs/helpers.php';
 
-// Kết nối và khởi tạo CSDL
+// Connections are shared and opened lazily. Schema setup is CLI-only.
 require_once ROOT_PATH . '/model/database.php';
-
-$database = new Database();
-$db = $database->getConnection();

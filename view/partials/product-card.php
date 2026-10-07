@@ -1,9 +1,7 @@
 <article class="product-card">
 
     <a class="product-image" href="<?= e(url('product', ['id' => $product['id']])) ?>" tabindex="-1" aria-hidden="true">
-        <div class="product-image-placeholder">
-            <?= icon('book') ?>
-        </div>
+        <img src="<?= e(asset($product['image'])) ?>" alt="" width="300" height="400" loading="lazy">
     </a>
 
     <div class="product-body">

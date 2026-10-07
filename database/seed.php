@@ -27,7 +27,7 @@ $rows = [
     [23, 'Đi tìm lẽ sống', 'Viktor E. Frankl', 'ky-nang', 78000, 98000, '', 4.9, 1130, '9780807014271'],
     [24, 'Nhật ký Anne Frank', 'Anne Frank', 'tieu-su', 110000, 135000, 'Mới', 4.8, 680, '9780553296983'],
 ];
-$categories = array_column(require __DIR__ . '/categories.php', null, 'slug');
+$categories = array_column(require dirname(__DIR__) . '/config/categories.php', null, 'slug');
 $descriptions = [
     'van-hoc' => 'Một hành trình qua những số phận và câu chuyện giàu cảm xúc. Từng trang sách mở ra một góc nhìn mới về cuộc sống, tình yêu và những điều giản dị quanh ta.',
     'kinh-te' => 'Khám phá những góc nhìn về kinh doanh, tài chính và cách đưa ra quyết định. Cuốn sách mang đến những câu chuyện gần gũi để bạn suy ngẫm và học hỏi.',

@@ -8,7 +8,7 @@
         <div class="field"><label for="sort">Sắp xếp theo</label><select id="sort" name="sort" data-auto-submit><?php foreach (['featured' => 'Nổi bật', 'newest' => 'Mới nhất', 'price-asc' => 'Giá: thấp đến cao', 'price-desc' => 'Giá: cao đến thấp', 'name' => 'Tên sách: A – Z'] as $key => $label): ?><option value="<?= e($key) ?>" <?= $sort === $key ? 'selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></div>
         <button class="button" type="submit"><?= icon('search') ?>Tìm sách</button>
     </form>
-    <div class="results-bar"><p><strong><?= $total ?></strong> kết quả<?= $search !== '' ? ' cho “' . e($search) . '”' : '' ?> <span class="muted">· Dữ liệu mẫu</span></p><?php if ($search !== '' || $category !== ''): ?><a class="text-link" href="<?= e(url('products')) ?>">Xóa bộ lọc</a><?php endif; ?></div>
+    <div class="results-bar"><p><strong><?= $total ?></strong> kết quả<?= $search !== '' ? ' cho “' . e($search) . '”' : '' ?></p><?php if ($search !== '' || $category !== ''): ?><a class="text-link" href="<?= e(url('products')) ?>">Xóa bộ lọc</a><?php endif; ?></div>
     <?php if (!$products): ?>
     <div class="empty-state panel"><?= icon('search') ?><h2>Chưa tìm thấy cuốn sách này</h2><p>Thử một từ khóa khác hoặc khám phá tất cả danh mục nhé.</p><a class="button" href="<?= e(url('products')) ?>">Xem tất cả sách</a></div>
     <?php else: ?>

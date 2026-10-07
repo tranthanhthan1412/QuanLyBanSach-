@@ -11,9 +11,7 @@
     <div class="product-detail">
 
         <div class="detail-cover">
-            <div class="book-cover-placeholder">
-                <?= icon('book') ?>
-            </div>
+            <img src="<?= e(asset($product['image'])) ?>" alt="Ảnh minh họa <?= e($product['title']) ?>" width="300" height="400">
         </div>
 
         <div class="detail-info">

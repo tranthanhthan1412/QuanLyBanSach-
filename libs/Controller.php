@@ -20,6 +20,7 @@ class Controller
                 'id' => $item['id'],
                 'title' => $item['title'],
                 'author' => $item['author'],
+                'image' => asset($item['image']),
                 'price' => $item['price'],
                 'href' => url('product', ['id' => $item['id']]),
                 'stock' => $item['stock'],

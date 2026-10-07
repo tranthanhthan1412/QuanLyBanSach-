@@ -21,7 +21,7 @@
     </div>
 
 
-    <?php require ROOT_PATH . '/view/partials/notice.php'; ?>
+
 
 
     <div class="account-grid">
@@ -54,21 +54,7 @@
                 <?php foreach ($orders as $order): ?>
 
                 <?php
-                        $status = $order['trangThai'] ?? 'Đang xử lý';
-
-                        $statusClass = 'pending';
-
-                        if (
-                            $status === 'Đã giao'
-                            || $status === 'Hoàn thành'
-                        ) {
-                            $statusClass = 'success';
-                        } elseif (
-                            $status === 'Đã hủy'
-                            || $status === 'Hủy'
-                        ) {
-                            $statusClass = 'danger';
-                        }
+                        [$status, $statusClass] = order_status($order['trangThai'] ?? 'ChoXacNhan');
                         ?>
 
 

@@ -37,6 +37,7 @@
         <?php endif; ?>
 
 
+        <?php if (!empty($success)): ?><div class="notice"><?= e($success) ?></div><?php endif; ?>
         <!-- FORM -->
 
         <form method="post" action="<?= e(
@@ -45,7 +46,8 @@
                         ? 'register'
                         : 'login'
                 )
-            ) ?>" autocomplete="off">
+            ) ?>" autocomplete="on">
+            <?= csrf_field() ?>
 
 
             <!-- NAME -->
@@ -60,7 +62,7 @@
 
                 <input id="fullname" name="name" type="text" required minlength="2" maxlength="80"
                     placeholder="Nhập họ và tên" value="<?= e(
-                            $_POST['name'] ?? ''
+                            post_string('name')
                         ) ?>">
 
             </div>
@@ -76,8 +78,8 @@
                     Email
                 </label>
 
-                <input id="auth-email" name="email" type="email" required placeholder="ban@example.com" value="<?= e(
-                        $_POST['email'] ?? ''
+                <input id="auth-email" name="email" type="email" required maxlength="100" autocomplete="email" placeholder="ban@example.com" value="<?= e(
+                        post_string('email')
                     ) ?>">
 
             </div>
@@ -94,8 +96,8 @@
 
                 <div class="password-wrap">
 
-                    <input id="password" name="password" type="password" required minlength="6" maxlength="128"
-                        placeholder="Nhập mật khẩu" autocomplete="new-password">
+                    <input id="password" name="password" type="password" required minlength="6" maxlength="72"
+                        placeholder="Nhập mật khẩu" autocomplete="<?= $isRegister ? 'new-password' : 'current-password' ?>">
 
 
                     <button type="button" data-toggle-password="password" class="icon-button" aria-label="Hiện mật khẩu"
@@ -121,7 +123,7 @@
 
                 <div class="password-wrap">
 
-                    <input id="confirm-password" name="confirm" type="password" required minlength="6" maxlength="128"
+                    <input id="confirm-password" name="confirm" type="password" required minlength="6" maxlength="72"
                         placeholder="Nhập lại mật khẩu" autocomplete="new-password">
 
 
@@ -182,15 +184,7 @@
         </p>
 
 
-        <!-- ACCOUNT PAGE -->
 
-        <a class="demo-account-link" href="<?= e(url('account')) ?>">
-
-            Xem giao diện tài khoản mẫu
-
-            <?= icon('arrow') ?>
-
-        </a>
 
     </div>
 

@@ -11,6 +11,7 @@ export function normalizeItems(value, products) {
         if (!item || !Number.isInteger(item.id) || !known.has(item.id)) continue;
         if (!Number.isInteger(item.qty) || item.qty < 1) continue;
         const maximum = known.get(item.id).stock;
+        if (!Number.isInteger(maximum) || maximum <= 0) continue;
         merged.set(item.id, Math.min(maximum, (merged.get(item.id) || 0) + item.qty));
     }
     return [...merged].map(([id, qty]) => ({ id, qty }));
@@ -49,6 +50,7 @@ export function createCart(products, storage, onWarning = () => {}) {
         subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
         add(id, quantity = 1) {
             if (!known.has(id)) return { ok: false, message: 'Sản phẩm không tồn tại trong dữ liệu mẫu.' };
+            if (known.get(id).stock <= 0) return { ok: false, message: 'Sách đã hết hàng.' };
             const qty = Math.min(known.get(id).stock, Math.max(1, Math.trunc(Number(quantity)) || 1));
             const line = items.find(item => item.id === id);
             const current = line?.qty || 0;

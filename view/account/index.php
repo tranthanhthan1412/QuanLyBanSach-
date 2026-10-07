@@ -23,7 +23,7 @@
     </div>
 
 
-    <?php require ROOT_PATH . '/view/partials/notice.php'; ?>
+
 
 
     <div class="account-grid">
@@ -89,9 +89,7 @@
                 </a>
 
 
-                <a class="button" href="<?= e(url('logout')) ?>">
-                    Đăng xuất
-                </a>
+                <form method="post" action="<?= e(url('logout')) ?>"><?= csrf_field() ?><button class="button" type="submit">Đăng xuất</button></form>
 
             </div>
 

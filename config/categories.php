@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+// Default category presentation, also used when seeding a new catalog.
 return [
     ['slug' => 'van-hoc', 'name' => 'Văn học', 'description' => 'Những câu chuyện chạm đến tâm hồn', 'icon' => 'book', 'color' => '#2f80ff'],
     ['slug' => 'kinh-te', 'name' => 'Kinh tế & Kinh doanh', 'description' => 'Kiến thức cho hành trình sự nghiệp', 'icon' => 'briefcase', 'color' => '#00c853'],

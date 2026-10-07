@@ -14,6 +14,20 @@ final class CategoryModel
         $this->db = $database->getConnection();
     }
 
+    private function decorate(array $category): array
+    {
+        static $styles;
+        $styles ??= array_column(require dirname(__DIR__) . '/config/categories.php', null, 'name');
+        $style = $styles[$category['name']] ?? [];
+        $category['id'] = (int) $category['id'];
+        $category['slug'] = (string) $category['slug'];
+        return $category + [
+            'icon' => $style['icon'] ?? 'book',
+            'color' => $style['color'] ?? '#6558ff',
+            'description' => $style['description'] ?? 'Khám phá sách trong danh mục này',
+        ];
+    }
+
     public function all(): array
     {
         $sql = "
@@ -27,7 +41,7 @@ final class CategoryModel
 
         $stmt = $this->db->query($sql);
 
-        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        return array_map([$this, 'decorate'], $stmt->fetchAll(\PDO::FETCH_ASSOC));
     }
 
     public function withProductCounts(): array
@@ -46,6 +60,6 @@ final class CategoryModel
 
         $stmt = $this->db->query($sql);
 
-        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        return array_map([$this, 'decorate'], $stmt->fetchAll(\PDO::FETCH_ASSOC));
     }
 }

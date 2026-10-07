@@ -482,3 +482,15 @@ dd { margin: 0; }
     html { scroll-behavior: auto; }
     *, *::before, *::after { transition: none !important; animation: none !important; }
 }
+
+/* Account forms share the navigation typography. */
+.text-button { border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; padding: 0; }
+.logout-form { margin: 0; }
+.account-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.status-red { color: #ad2929; background: #fff0f0; }
+.category-nav .logout-form button { min-height: 40px; padding: 8px 12px; text-align: left; }
+.order-card { border-bottom: 1px solid var(--color-border); padding-bottom: 24px; }
+.order-card-header, .order-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.order-card-body { display: flex; gap: 24px; flex-wrap: wrap; margin-block: 20px; }
+.order-card-body > div { display: grid; gap: 6px; }
+@media (max-width: 639px) { .header-actions > .logout-form { display: none; } }

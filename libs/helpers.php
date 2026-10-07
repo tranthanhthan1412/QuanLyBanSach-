@@ -34,9 +34,52 @@ function asset(string $path): string
     return base_url() . $directory . ltrim($path, '/');
 }
 
-function money(int $value): string
+function money(int|float|string $value): string
 {
-    return number_format($value, 0, ',', '.') . ' ₫';
+    return number_format((float) $value, 0, ',', '.') . ' ₫';
+}
+
+function post_string(string $key, bool $trim = true): string
+{
+    $value = $_POST[$key] ?? '';
+    return is_string($value) ? ($trim ? trim($value) : $value) : '';
+}
+
+function csrf_token(): string
+{
+    return $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+}
+
+function csrf_field(): string
+{
+    return '<input type="hidden" name="csrf_token" value="' . e(csrf_token()) . '">';
+}
+
+function csrf_valid(): bool
+{
+    return isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], post_string('csrf_token'));
+}
+
+function book_image(?string $path): string
+{
+    // Only packaged images may be used; arbitrary paths and URLs are rejected.
+    if (!$path || !preg_match('~^images/[a-zA-Z0-9_-]+\.(jpg|jpeg|png|webp|svg)$~D', $path)
+        || !is_file(ROOT_PATH . '/public/assets/' . $path)) {
+        return 'images/book-placeholder.svg';
+    }
+    return $path;
+}
+
+function order_status(string $status): array
+{
+    return match ($status) {
+        'ChoXacNhan', 'Đang xử lý', 'Chờ xác nhận' => ['Chờ xác nhận', 'amber'],
+        'DaXacNhan', 'Đã xác nhận' => ['Đã xác nhận', 'blue'],
+        'DangGiao', 'Đang giao' => ['Đang giao', 'blue'],
+        'DaGiao', 'HoanThanh', 'Đã giao', 'Hoàn thành' => ['Đã giao', 'green'],
+        'DaHuy', 'Đã hủy', 'Hủy' => ['Đã hủy', 'red'],
+        default => [$status, 'amber'],
+    };
 }
 
 function query(string $key, string $default = ''): string

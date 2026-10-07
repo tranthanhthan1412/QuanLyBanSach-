@@ -1,0 +1,1 @@
+<div class="container page-content"><div class="empty-state"><h1>Phiên gửi biểu mẫu không hợp lệ</h1><p>Vui lòng tải lại trang biểu mẫu rồi thử lại.</p><a class="button" href="<?= e(url('login')) ?>">Đến trang đăng nhập</a></div></div>

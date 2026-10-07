@@ -55,9 +55,7 @@
             </a>
 
 
-            <a class="header-action" href="<?= e(url('logout')) ?>">
-                <span>Đăng xuất</span>
-            </a>
+            <form class="logout-form" method="post" action="<?= e(url('logout')) ?>"><?= csrf_field() ?><button class="header-action text-button" type="submit">Đăng xuất</button></form>
 
 
             <?php else: ?>
@@ -171,9 +169,7 @@
         </a>
 
 
-        <a class="mobile-account" href="<?= e(url('logout')) ?>">
-            Đăng xuất
-        </a>
+        <form class="mobile-account logout-form" method="post" action="<?= e(url('logout')) ?>"><?= csrf_field() ?><button class="text-button" type="submit">Đăng xuất</button></form>
 
 
         <?php else: ?>

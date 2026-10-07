@@ -9,10 +9,10 @@
             <div>
                 <h2>Khám phá BookStore</h2>
                 <a href="<?= e(url('products')) ?>">Tất cả sách & truyện</a>
-                <a href="<?= e(url('products', ['category' => 'truyen-tranh'])) ?>">Truyện tranh</a>
+                <a href="<?= e(url('products', ['q' => 'Truyện tranh'])) ?>">Truyện tranh</a>
                 <a href="<?= e(url('products', ['sort' => 'newest'])) ?>">Sách mới</a>
                 <a href="<?= e(url('cart')) ?>">Giỏ hàng của bạn</a>
-                <a href="<?= e(url('orders')) ?>">Xem đơn hàng mẫu</a>
+                <a href="<?= e(url('orders')) ?>">Đơn hàng của bạn</a>
             </div>
             <div>
                 <h2>Chăm sóc khách hàng</h2>

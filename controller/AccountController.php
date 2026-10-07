@@ -62,7 +62,7 @@ final class AccountController extends Controller
     {
         $user = $this->requireLogin();
 
-        $orderId = (int)($_GET['id'] ?? 0);
+        $orderId = (int) query('id', '0');
 
         if ($orderId <= 0) {
             header('Location: ' . url('orders'));
@@ -86,7 +86,7 @@ final class AccountController extends Controller
             return;
         }
 
-        $this->render('account/order', [
+        $this->render('account/show', [
             'title' => 'Chi tiết đơn hàng',
             'user' => $user,
             'order' => $order
