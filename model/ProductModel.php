@@ -44,6 +44,7 @@ final class ProductModel
             INNER JOIN theloai tl ON s.maTL = tl.maTL
             INNER JOIN tacgia tg ON s.maTG = tg.maTG
             INNER JOIN nhaxuatban nxb ON s.maNXB = nxb.maNXB
+            WHERE s.an = 0
             ORDER BY s.maSach ASC
         ";
 
@@ -72,7 +73,7 @@ final class ProductModel
             INNER JOIN theloai tl ON s.maTL = tl.maTL
             INNER JOIN tacgia tg ON s.maTG = tg.maTG
             INNER JOIN nhaxuatban nxb ON s.maNXB = nxb.maNXB
-            WHERE s.maSach = :id
+            WHERE s.maSach = :id AND s.an = 0
             LIMIT 1
         ";
 
@@ -106,6 +107,7 @@ final class ProductModel
             INNER JOIN theloai tl ON s.maTL = tl.maTL
             INNER JOIN tacgia tg ON s.maTG = tg.maTG
             INNER JOIN nhaxuatban nxb ON s.maNXB = nxb.maNXB
+            WHERE s.an = 0
             ORDER BY s.maSach ASC
             LIMIT {$limit}
         ";
@@ -133,7 +135,7 @@ final class ProductModel
         $pageSize = max(1, $pageSize);
         $page = max(1, $page);
 
-        $where = [];
+        $where = ['s.an = 0'];
         $params = [];
 
         // Tìm kiếm
@@ -253,7 +255,7 @@ final class ProductModel
             INNER JOIN theloai tl ON s.maTL = tl.maTL
             INNER JOIN tacgia tg ON s.maTG = tg.maTG
             INNER JOIN nhaxuatban nxb ON s.maNXB = nxb.maNXB
-            WHERE s.maTL = :category
+            WHERE s.maTL = :category AND s.an = 0
             AND s.maSach != :id
             ORDER BY s.maSach ASC
             LIMIT {$limit}

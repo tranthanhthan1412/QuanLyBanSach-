@@ -25,6 +25,8 @@ try {
         $db->exec('ALTER TABLE sach ADD COLUMN hinhAnh VARCHAR(255) NULL');
     }
 
+    require_once __DIR__ . '/admin-migration.php';
+    migrate_admin($db);
     $db->beginTransaction();
     $role = $db->prepare('INSERT INTO vaitro (tenVT, moTa) SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM vaitro WHERE tenVT = ?)');
     foreach (['Admin' => 'Quản trị viên', 'User' => 'Khách hàng'] as $name => $description) {

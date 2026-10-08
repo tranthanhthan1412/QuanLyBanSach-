@@ -17,18 +17,19 @@ final class AuthController extends Controller
                 $error = 'Vui lòng nhập email hợp lệ và mật khẩu.';
             } else {
                 $db = (new \Database())->getConnection();
-                $stmt = $db->prepare('SELECT nd.maND, nd.tenND, nd.email, nd.matKhau, nd.maVT, vt.tenVT
+                $stmt = $db->prepare('SELECT nd.maND, nd.tenND, nd.email, nd.matKhau, nd.maVT, nd.biKhoa, vt.tenVT
                     FROM nguoidung nd INNER JOIN vaitro vt ON nd.maVT = vt.maVT WHERE nd.email = ? LIMIT 1');
                 $stmt->execute([$email]);
                 $user = $stmt->fetch();
-                if ($user && password_verify($password, $user['matKhau'])) {
+                if ($user && !(int) $user['biKhoa'] && in_array($user['tenVT'], ['Admin', 'User'], true)
+                    && password_verify($password, $user['matKhau'])) {
                     session_regenerate_id(true);
                     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                     $_SESSION['user'] = [
                         'id' => (int) $user['maND'], 'name' => $user['tenND'], 'email' => $user['email'],
                         'role_id' => (int) $user['maVT'], 'role' => $user['tenVT'],
                     ];
-                    header('Location: ' . url('account'), true, 303);
+                    header('Location: ' . url($user['tenVT'] === 'Admin' ? 'admin' : 'account'), true, 303);
                     exit;
                 }
                 $error = 'Email hoặc mật khẩu không chính xác.';

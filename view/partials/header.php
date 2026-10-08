@@ -40,6 +40,10 @@
 
             <?php if (!empty($_SESSION['user'])): ?>
 
+            <?php if (is_admin()): ?>
+            <a class="header-action" href="<?= e(url('admin')) ?>"><?= icon('shield') ?><span>Quản trị</span></a>
+            <?php endif; ?>
+
             <!-- ========================= -->
             <!-- ĐÃ ĐĂNG NHẬP -->
             <!-- ========================= -->
@@ -158,6 +162,9 @@
 
 
         <!-- MOBILE ACCOUNT -->
+        <?php if (is_admin()): ?>
+        <a class="mobile-account" href="<?= e(url('admin')) ?>"><?= icon('shield') ?>Quản trị</a>
+        <?php endif; ?>
         <?php if (!empty($_SESSION['user'])): ?>
 
         <a class="mobile-account" href="<?= e(url('account')) ?>">

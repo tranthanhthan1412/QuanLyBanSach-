@@ -11,12 +11,13 @@ final class AccountController extends Controller
 {
     private function requireLogin(): array
     {
-        if (empty($_SESSION['user'])) {
+        $user = current_user();
+        if ($user === null) {
             header('Location: ' . url('login'));
             exit;
         }
 
-        return $_SESSION['user'];
+        return $user;
     }
 
 

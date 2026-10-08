@@ -54,9 +54,32 @@ Website chỉ mở kết nối dùng chung cho mỗi request; không tự tạo 
 - Đăng ký, đăng nhập bằng mật khẩu đã hash; biểu mẫu có CSRF token, session được đổi ID khi đăng nhập/đăng xuất. Đăng xuất dùng POST.
 - Trang tài khoản hiển thị dữ liệu người dùng đang đăng nhập. Danh sách và chi tiết đơn hàng chỉ đọc đơn của người dùng đó; dùng số tiền đã lưu trong chi tiết đơn.
 - **Đặt hàng COD và nhận bản tin vẫn là demo.** Cần JavaScript; thông tin người nhận/email nhận tin không được lưu. Hoàn tất đặt hàng thử sẽ xóa giỏ và tạo xác nhận tạm trong phiên trình duyệt; không tạo bản ghi đơn hàng trong MySQL.
-- Chưa có quản trị sách, chỉnh sửa hồ sơ, đặt hàng thật, cập nhật trạng thái đơn, thanh toán online hay thống kê. Vai trò Admin đã có trong database nhưng chưa có màn hình quản trị.
+- Phân quyền `Admin` (quản trị viên) và `User` (khách hàng) ở phía server. Admin có trang tổng quan số đầu sách, tồn kho, khách hàng và đơn hàng; khách hàng truy cập trang này nhận HTTP 403.
+- Chưa có thêm/sửa/xóa sách trên trang quản trị, chỉnh sửa hồ sơ, đặt hàng thật, cập nhật trạng thái đơn, thanh toán online hay báo cáo doanh thu.
 
 Ví dụ URL: `index.php?route=products`, `index.php?route=product&id=1`, `index.php?route=cart`. ID sách thực tế tùy dữ liệu trong database; nên mở sách từ danh sách.
+
+## Phân quyền admin và khách hàng
+
+Đăng ký trên website luôn tạo khách hàng (`User`), kể cả khi request cố gửi vai trò `Admin`. Không có tài khoản admin hay mật khẩu mặc định. Sau khi đăng nhập, admin được chuyển đến `index.php?route=admin`, khách hàng đến trang tài khoản. Liên kết **Quản trị** chỉ hiển thị với admin trên máy tính, điện thoại và menu tài khoản.
+
+Để cấp quyền admin cho một tài khoản đã đăng ký, chạy trong thư mục dự án (thay email ví dụ bằng tài khoản của bạn):
+
+```powershell
+& C:\xampp\php\php.exe database\set-role.php 'admin@example.com' Admin
+```
+
+Để chuyển tài khoản đó về khách hàng:
+
+```powershell
+& C:\xampp\php\php.exe database\set-role.php 'admin@example.com' User
+```
+
+Lệnh chỉ chạy bằng CLI, dùng cấu hình database hiện tại, không tạo tài khoản mới. Quyền được đọc lại từ database mỗi request; thay đổi quyền có hiệu lực ở request tiếp theo, không cần đăng xuất. Tài khoản bị xóa hoặc có vai trò không hỗ trợ sẽ mất phiên xác thực.
+
+Trang tài khoản và đơn hàng yêu cầu đăng nhập; cả hai vai trò chỉ xem được đơn của chính mình ở các trang này. Danh mục, giỏ hàng và luồng đặt hàng mô phỏng vẫn truy cập công khai. Trang quản trị hiện cung cấp tổng quan, chưa có chức năng sửa dữ liệu.
+
+Khi thêm route quản trị, khai báo danh sách quyền ở cả GET và POST, ví dụ `$router->get('admin', [AdminController::class, 'index'], ['Admin']);`. Route có danh sách quyền rỗng là công khai. Router kiểm tra quyền trước khi chạy controller; POST vẫn cần CSRF token hợp lệ. Không dùng việc ẩn menu làm kiểm soát truy cập.
 
 ## Kiểm thử
 
@@ -73,7 +96,7 @@ Kiểm thử tích hợp (cần Node.js 22+, MySQL đang chạy, PHP CLI và quy
 node tests\smoke.mjs
 ```
 
-Bài test tự tạo database riêng có tên `bookstore_test_<pid>_<timestamp>`, chạy setup hai lần, kiểm tra giữ nguyên dữ liệu, danh mục/tìm kiếm/ảnh, đăng ký/đăng nhập/đăng xuất, CSRF và quyền xem đơn hàng. Test mở PHP server trên cổng trống, dùng session tạm trong `tests/.tmp-*/`, rồi dừng server và xóa database test. Không ghi vào database đang dùng cho website. Có thể đặt `PHP_BIN` nếu PHP nằm ở đường dẫn khác.
+Bài test tự tạo database riêng có tên `bookstore_test_<pid>_<timestamp>`, chạy setup hai lần, kiểm tra giữ nguyên dữ liệu, danh mục/tìm kiếm/ảnh, đăng ký/đăng nhập/đăng xuất, CSRF và quyền xem đơn hàng. Test cũng kiểm tra chặn khách hàng vào trang admin, điều hướng theo vai trò, bỏ qua vai trò giả mạo khi đăng ký, cấp/thu hồi quyền ngay trong phiên hiện tại và vô hiệu hóa phiên của tài khoản bị xóa hoặc có vai trò lạ. Test mở PHP server trên cổng trống, dùng session tạm trong `tests/.tmp-*/`, rồi dừng server và xóa database test. Không ghi vào database đang dùng cho website. Có thể đặt `PHP_BIN` nếu PHP nằm ở đường dẫn khác.
 
 ## Xử lý lỗi chạy dự án
 

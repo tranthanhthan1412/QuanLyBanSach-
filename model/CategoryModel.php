@@ -53,7 +53,7 @@ final class CategoryModel
                 tl.tenTL AS name,
                 COUNT(s.maSach) AS product_count
             FROM theloai tl
-            LEFT JOIN sach s ON tl.maTL = s.maTL
+            LEFT JOIN sach s ON tl.maTL = s.maTL AND s.an = 0
             GROUP BY tl.maTL, tl.tenTL
             ORDER BY tl.maTL ASC
         ";

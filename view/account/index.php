@@ -1,8 +1,6 @@
 <div class="container page-content">
 
     <?php
-    $user = $_SESSION['user'] ?? null;
-
     $breadcrumbs = [
         ['label' => 'Tài khoản']
     ];
@@ -72,7 +70,7 @@
                     <dt>Vai trò</dt>
 
                     <dd>
-                        <?= e($user['role'] ?? 'User') ?>
+                        <?= e(role_label($user['role'])) ?>
                     </dd>
 
                 </div>

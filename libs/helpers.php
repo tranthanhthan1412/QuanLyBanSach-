@@ -6,6 +6,51 @@ function e(mixed $value): string
     return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
+/** Resolve identity and role from the database once per request, never from form input. */
+function current_user(): ?array
+{
+    static $loaded = false;
+    static $user = null;
+    if ($loaded) {
+        return $user;
+    }
+    $loaded = true;
+    $id = $_SESSION['user']['id'] ?? null;
+    if (!is_int($id) || $id <= 0) {
+        unset($_SESSION['user']);
+        return null;
+    }
+    $db = (new \Database())->getConnection();
+    $stmt = $db->prepare('SELECT nd.maND, nd.tenND, nd.email, nd.maVT, nd.biKhoa, vt.tenVT
+        FROM nguoidung nd INNER JOIN vaitro vt ON nd.maVT = vt.maVT WHERE nd.maND = ? LIMIT 1');
+    $stmt->execute([$id]);
+    $row = $stmt->fetch();
+    if (!$row || (int) $row['biKhoa'] === 1 || !in_array($row['tenVT'], ['Admin', 'User'], true)) {
+        unset($_SESSION['user']);
+        return null;
+    }
+    $user = [
+        'id' => (int) $row['maND'], 'name' => $row['tenND'], 'email' => $row['email'],
+        'role_id' => (int) $row['maVT'], 'role' => $row['tenVT'],
+    ];
+    $_SESSION['user'] = $user;
+    return $user;
+}
+
+function is_admin(): bool
+{
+    return (current_user()['role'] ?? null) === 'Admin';
+}
+
+function role_label(string $role): string
+{
+    return match ($role) {
+        'Admin' => 'Quản trị viên',
+        'User' => 'Khách hàng',
+        default => 'Không có quyền truy cập',
+    };
+}
+
 function config(string $key): mixed
 {
     static $config;

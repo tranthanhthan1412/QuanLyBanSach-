@@ -96,6 +96,9 @@ try {
     assert.equal((await guest.request('route=missing')).status, 404);
     assert.equal((await guest.request('route=product&id=999999')).status, 404);
     assert.equal((await guest.request('route=account')).status, 302);
+    const adminGuest = await guest.request('route=admin');
+    assert.equal(adminGuest.status, 302);
+    assert.equal(adminGuest.headers.get('location'), '/index.php?route=login');
     assert.equal((await guest.request('route=logout')).status, 405);
     assert.equal((await guest.request('route=home', 'POST')).status, 405);
     assert.equal((await guest.request('route=checkout', 'POST')).status, 405);
@@ -103,7 +106,7 @@ try {
 
     let page = await guest.request('route=register');
     const token = guest.token(page.html);
-    const registration = { csrf_token: token, name: 'Người kiểm thử', email: 'smoke@example.test', password: 'TestPass123!', confirm: 'TestPass123!' };
+    const registration = { csrf_token: token, name: 'Người kiểm thử', email: 'smoke@example.test', password: 'TestPass123!', confirm: 'TestPass123!', role: 'Admin', role_id: '1', maVT: '1' };
     page = await guest.request('route=register', 'POST', { ...registration, confirm: 'mismatch' });
     assert.match(page.html, /Mật khẩu nhập lại không khớp/);
     page = await guest.request('route=register', 'POST', registration);
@@ -118,8 +121,15 @@ try {
     page = await guest.request('route=login', 'POST', registration);
     assert.equal(page.status, 303);
     assert.notEqual(guest.cookie, beforeLogin);
+    assert.equal(page.headers.get('location'), '/index.php?route=account');
     page = await guest.request('route=account');
     assert.match(page.html, /Người kiểm thử/);
+    assert.match(page.html, /Khách hàng/);
+    assert.doesNotMatch(page.html, /href="[^"]*route=admin"/);
+    const forbidden = await guest.request('route=admin');
+    assert.equal(forbidden.status, 403);
+    assert.match(forbidden.html, /Bạn không có quyền truy cập/);
+    assert.doesNotMatch(forbidden.html, /Tổng quan cửa hàng/);
     const loggedInToken = guest.token(page.html);
     assert.notEqual(loggedInToken, token);
     assert.match((await guest.request('route=orders')).html, /Bạn chưa có đơn hàng nào/);
@@ -146,6 +156,153 @@ try {
     assert.equal((await guest.request('route=logout', 'POST', { csrf_token: token })).status, 403);
     assert.equal((await guest.request('route=logout', 'POST', { csrf_token: loggedInToken })).status, 303);
     assert.equal((await guest.request('route=account')).status, 302);
+    // Existing customer sessions immediately gain/lose access when the DB role changes.
+    sql("$db->exec(\"UPDATE vaitro SET maVT = 29 WHERE tenVT = 'Admin'\");");
+    run(['database/set-role.php', registration.email, 'Admin']);
+    page = await guest.request('route=login');
+    page = await guest.request('route=login', 'POST', { ...registration, csrf_token: guest.token(page.html) });
+    assert.equal(page.status, 303);
+    assert.equal(page.headers.get('location'), '/index.php?route=admin');
+    page = await guest.request('route=admin');
+    assert.equal(page.status, 200);
+    assert.match(page.html, /Tổng quan cửa hàng/);
+    assert.match(page.html, /Quản trị viên/);
+    assert.match(page.html, /href="[^"]*route=admin"/);
+    const adminCss = await fetch(`${base}/assets/css/admin.css`);
+    assert.equal(adminCss.status, 200);
+    assert.match(await adminCss.text(), /\.admin-sidebar/);
+    assert.equal((await guest.request(`route=order&id=${orders.other}`)).status, 404);
+    // The read-only dashboard must not accept POST requests.
+    assert.equal((await guest.request('route=admin', 'POST', { csrf_token: guest.token(page.html) })).status, 405);
+
+    // Product history must prevent destructive deletion while leaving the book intact.
+    const adminProducts = await guest.request('route=admin-products');
+    const bookVersion = sql("echo $db->query('SELECT phienBan FROM sach WHERE maSach = 1')->fetchColumn();");
+    page = await guest.request('route=admin-product-delete', 'POST', {
+        csrf_token: guest.token(adminProducts.html), id: '1', version: bookVersion,
+    });
+    assert.equal(page.status, 303);
+    assert.equal(sql("echo $db->query('SELECT COUNT(*) FROM sach WHERE maSach = 1')->fetchColumn();"), '1');
+    page = await guest.request('route=admin-products');
+    assert.match(page.html, /Sách đã có trong đơn hàng, không thể xóa/);
+
+    // Confirmation is atomic when a later line item has insufficient stock.
+    const adminOrders = await guest.request('route=admin-orders');
+    const edgeOrders = JSON.parse(sql(`
+        $admin = (int) $db->query("SELECT maND FROM nguoidung WHERE email = 'smoke@example.test'")->fetchColumn();
+        $db->exec('UPDATE sach SET tonKho = 37 WHERE maSach = 1');
+        $db->exec('UPDATE sach SET tonKho = 0 WHERE maSach = 2');
+        $stmt = $db->prepare('INSERT INTO donhang (tenDH, tongSL, maND) VALUES (?, 3, ?)');
+        $stmt->execute(['Insufficient stock test', $admin]);
+        $order = (int) $db->lastInsertId();
+        $lines = $db->prepare('INSERT INTO chitietdonhang (maDH, maSach, soLuong, tongTien) VALUES (?, ?, ?, ?)');
+        $lines->execute([$order, 1, 2, 178000]);
+        $lines->execute([$order, 2, 1, 25000]);
+        echo json_encode(['order' => $order]);
+    `));
+    page = await guest.request(`route=admin-order&id=${edgeOrders.order}`);
+    const failedConfirmation = await guest.request(`route=admin-order&id=${edgeOrders.order}`, 'POST', {
+        csrf_token: guest.token(page.html), expected: 'ChoXacNhan', status: 'DaXacNhan', note: '',
+    });
+    assert.equal(failedConfirmation.status, 303);
+    const failedState = JSON.parse(sql(`
+        $order = ${edgeOrders.order};
+        echo json_encode([
+            'status' => $db->query("SELECT trangThai FROM donhang WHERE maDH = $order")->fetchColumn(),
+            'deducted' => $db->query("SELECT daTruKho FROM donhang WHERE maDH = $order")->fetchColumn(),
+            'first' => $db->query('SELECT tonKho FROM sach WHERE maSach = 1')->fetchColumn(),
+            'second' => $db->query('SELECT tonKho FROM sach WHERE maSach = 2')->fetchColumn()
+        ]);
+    `));
+    assert.deepEqual(failedState, { status: 'ChoXacNhan', deducted: 0, first: 37, second: 0 });
+    page = await guest.request(`route=admin-order&id=${edgeOrders.order}`);
+    assert.match(page.html, /không đủ tồn kho hoặc đã ẩn/);
+
+    // Repeated cancellation requests must never restore inventory twice.
+    sql("$db->exec('UPDATE sach SET tonKho = 1 WHERE maSach = 2');");
+    page = await guest.request(`route=admin-order&id=${edgeOrders.order}`);
+    let mutation = await guest.request(`route=admin-order&id=${edgeOrders.order}`, 'POST', {
+        csrf_token: guest.token(page.html), expected: 'ChoXacNhan', status: 'DaXacNhan', note: '',
+    });
+    assert.equal(mutation.status, 303);
+    assert.deepEqual(JSON.parse(sql(`
+        echo json_encode([
+            'first' => $db->query('SELECT tonKho FROM sach WHERE maSach = 1')->fetchColumn(),
+            'second' => $db->query('SELECT tonKho FROM sach WHERE maSach = 2')->fetchColumn(),
+            'deducted' => $db->query('SELECT daTruKho FROM donhang WHERE maDH = ${edgeOrders.order}')->fetchColumn()
+        ]);
+    `)), { first: 35, second: 0, deducted: 1 });
+    page = await guest.request(`route=admin-order&id=${edgeOrders.order}`);
+    const cancellation = {
+        csrf_token: guest.token(page.html), expected: 'DaXacNhan', status: 'DaHuy', note: 'Khách yêu cầu hủy',
+    };
+    mutation = await guest.request(`route=admin-order&id=${edgeOrders.order}`, 'POST', cancellation);
+    assert.equal(mutation.status, 303);
+    const restoredState = JSON.parse(sql(`
+        echo json_encode([
+            'status' => $db->query('SELECT trangThai FROM donhang WHERE maDH = ${edgeOrders.order}')->fetchColumn(),
+            'deducted' => $db->query('SELECT daTruKho FROM donhang WHERE maDH = ${edgeOrders.order}')->fetchColumn(),
+            'first' => $db->query('SELECT tonKho FROM sach WHERE maSach = 1')->fetchColumn(),
+            'second' => $db->query('SELECT tonKho FROM sach WHERE maSach = 2')->fetchColumn()
+        ]);
+    `));
+    assert.deepEqual(restoredState, { status: 'DaHuy', deducted: 0, first: 37, second: 1 });
+    mutation = await guest.request(`route=admin-order&id=${edgeOrders.order}`, 'POST', cancellation);
+    assert.equal(mutation.status, 303);
+    assert.deepEqual(JSON.parse(sql(`
+        echo json_encode([
+            'status' => $db->query('SELECT trangThai FROM donhang WHERE maDH = ${edgeOrders.order}')->fetchColumn(),
+            'deducted' => $db->query('SELECT daTruKho FROM donhang WHERE maDH = ${edgeOrders.order}')->fetchColumn(),
+            'first' => $db->query('SELECT tonKho FROM sach WHERE maSach = 1')->fetchColumn(),
+            'second' => $db->query('SELECT tonKho FROM sach WHERE maSach = 2')->fetchColumn()
+        ]);
+    `)), { status: 'DaHuy', deducted: 0, first: 37, second: 1 });
+    page = await guest.request(`route=admin-order&id=${edgeOrders.order}`);
+    assert.match(page.html, /Trạng thái đã thay đổi/);
+
+    // A locked customer loses access even when their existing browser session remains open.
+    const lockable = new Client(base);
+    page = await lockable.request('route=register');
+    const lockableRegistration = {
+        ...registration, name: 'Tài khoản sẽ khóa', email: 'lockable@example.test',
+        csrf_token: lockable.token(page.html),
+    };
+    assert.equal((await lockable.request('route=register', 'POST', lockableRegistration)).status, 303);
+    page = await lockable.request('route=login');
+    assert.equal((await lockable.request('route=login', 'POST', {
+        ...lockableRegistration, csrf_token: lockable.token(page.html),
+    })).status, 303);
+    assert.equal((await lockable.request('route=account')).status, 200);
+    const adminUsers = await guest.request('route=admin-users');
+    const lockableId = sql("echo $db->query(\"SELECT maND FROM nguoidung WHERE email = 'lockable@example.test'\")->fetchColumn();");
+    mutation = await guest.request('route=admin-users', 'POST', {
+        csrf_token: guest.token(adminUsers.html), id: lockableId, role: 'User', blocked: '1',
+    });
+    assert.equal(mutation.status, 303);
+    assert.equal(sql(`echo $db->query('SELECT biKhoa FROM nguoidung WHERE maND = ${lockableId}')->fetchColumn();`), '1');
+    assert.equal((await lockable.request('route=account')).status, 302);
+    assert.equal((await guest.request('route=admin')).status, 200);
+
+    run(['database/set-role.php', registration.email, 'User']);
+    assert.equal((await guest.request('route=admin')).status, 403);
+    assert.doesNotMatch((await guest.request('route=account')).html, /href="[^"]*route=admin"/);
+    run(['database/set-role.php', registration.email, 'Admin']);
+    assert.equal((await guest.request('route=admin')).status, 200);
+    // Unknown roles invalidate the existing session and cannot log in.
+    sql("$db->exec(\"INSERT INTO vaitro (tenVT) VALUES ('Unsupported')\"); $db->exec(\"UPDATE nguoidung SET maVT = (SELECT maVT FROM vaitro WHERE tenVT = 'Unsupported') WHERE email = 'smoke@example.test'\");");
+    assert.equal((await guest.request('route=admin')).status, 302);
+    page = await guest.request('route=login');
+    page = await guest.request('route=login', 'POST', { ...registration, csrf_token: guest.token(page.html) });
+    assert.match(page.html, /Email hoặc mật khẩu không chính xác/);
+    assert.equal((await guest.request('route=account')).status, 302);
+    // Deleted accounts cannot keep using an old authenticated session.
+    const removed = new Client(base);
+    page = await removed.request('route=register');
+    const removedRegistration = { ...registration, email: 'removed@example.test', csrf_token: removed.token(page.html) };
+    assert.equal((await removed.request('route=register', 'POST', removedRegistration)).status, 303);
+    assert.equal((await removed.request('route=login', 'POST', removedRegistration)).status, 303);
+    sql("$db->exec(\"DELETE FROM nguoidung WHERE email = 'removed@example.test'\");");
+    assert.equal((await removed.request('route=account')).status, 302);
     assert.doesNotMatch(serverLog, /PHP (Warning|Fatal error|Deprecated)/);
     const unavailable = run(['-d', `session.save_path=${sessions}`], `<?php
         putenv('DB_NAME=${database}_missing');
@@ -155,7 +312,7 @@ try {
     `);
     assert.match(unavailable, /HTTP_STATUS=503/);
     assert.doesNotMatch(unavailable, /SQLSTATE|PDOException|Stack trace/);
-    console.log(`PASS: ${checks} HTTP checks; setup rerun, data preservation, catalog, auth, CSRF, order ownership.`);
+    console.log(`PASS: ${checks} HTTP checks; setup rerun, data preservation, catalog, auth, CSRF, roles, role revocation, order ownership.`);
 } finally {
     if (server && server.exitCode === null) {
         const closed = once(server, 'exit');
