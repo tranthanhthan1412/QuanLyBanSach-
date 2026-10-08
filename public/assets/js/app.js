@@ -1,4 +1,4 @@
-import { createCart, calculateTotals, normalizeItems, CART_KEY, RECEIPT_KEY } from './cart-store.js';
+import { createCart, calculateTotals, CART_KEY } from './cart-store.js';
 import { initDemoForms, showFormResult } from './demo.js';
 
 const config = JSON.parse(document.getElementById('app-data').textContent);
@@ -87,8 +87,8 @@ function summary(totals, checkout = false) {
         <div class="summary-row"><span>Phí vận chuyển</span><span data-shipping>${totals.shipping ? money(totals.shipping) : 'Miễn phí'}</span></div>
         <p class="shipping-hint">${remaining > 0 ? `Thêm ${money(remaining)} để được miễn phí giao hàng.` : 'Đơn hàng đã được miễn phí giao hàng.'}</p>
         <div class="summary-row summary-total"><span>Tổng cộng</span><strong data-total>${money(totals.total)}</strong></div>
-        ${checkout ? '<button type="submit" form="checkout-form" class="button full-width" id="place-order">Đặt hàng mô phỏng →</button>' : `<a class="button full-width" href="${escape(config.urls.checkout)}">Tiến hành đặt hàng →</a>`}
-        <p class="summary-footnote">${checkout ? 'Không phát sinh đơn hàng hoặc thanh toán thật.' : 'Giỏ hàng demo · Thanh toán khi nhận hàng (COD)'}</p>`;
+        ${checkout ? '<button type="submit" form="checkout-form" class="button full-width" id="place-order">Đặt hàng COD →</button>' : `<a class="button full-width" href="${escape(config.urls.checkout)}">Tiến hành đặt hàng →</a>`}
+        <p class="summary-footnote">${checkout ? 'Đơn COD được lưu vào hệ thống. Thanh toán khi nhận sách.' : 'Thanh toán khi nhận hàng (COD)'}</p>`;
 }
 function renderCart() {
     const target = document.getElementById('cart-root');
@@ -146,38 +146,73 @@ function renderCheckout() {
 let submitting = false;
 initDemoForms({
     notify,
-    checkout(form) {
+
+    async checkout(form) {
         if (submitting) return;
+
         const items = cart.getItems();
-        if (!items.length) { renderCheckout(); notify('Giỏ hàng đang trống. Vui lòng chọn sách trước.'); return; }
-        // Store no form values. The receipt always uses an explicitly fictional recipient.
-        const receipt = { version: 1, items, createdAt: new Date().toISOString() };
-        try { sessionStorage.setItem(RECEIPT_KEY, JSON.stringify(receipt)); }
-        catch { showFormResult(form, 'Trình duyệt không cho lưu đơn mô phỏng trong phiên này. Giỏ hàng vẫn được giữ nguyên.', true); return; }
+
+        if (!items.length) {
+            renderCheckout();
+            notify('Giỏ hàng đang trống.');
+            return;
+        }
+
+        const button = document.getElementById('place-order');
+
         submitting = true;
-        document.getElementById('place-order').disabled = true;
-        form.reset();
-        cart.clear();
-        window.location.assign(config.urls.success);
-    },
+        if (button) button.disabled = true;
+
+        try {
+            form.elements.items.value = JSON.stringify(items);
+
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: {
+                    'Accept': 'application/json'
+                },
+                credentials: 'same-origin'
+            });
+
+            const payload = await response.json();
+
+            if (!response.ok || !payload.ok) {
+                showFormResult(
+                    form,
+                    payload.message || 'Không thể lưu đơn. Hãy thử lại.',
+                    true
+                );
+
+                if (response.status === 401 && payload.loginUrl) {
+                    const link = document.createElement('a');
+                    link.href = payload.loginUrl;
+                    link.textContent = ' Đăng nhập tại đây';
+                    form.querySelector('.form-result').append(link);
+                }
+
+                return;
+            }
+
+            // Chỉ xóa giỏ hàng sau khi MySQL lưu đơn thành công
+            cart.clear();
+
+            window.location.assign(payload.redirect);
+
+        } catch (error) {
+            showFormResult(
+                form,
+                'Không kết nối được máy chủ. Giỏ hàng vẫn được giữ; vui lòng thử lại.',
+                true
+            );
+
+        } finally {
+            submitting = false;
+            if (button) button.disabled = false;
+        }
+    }
 });
 
-function renderSuccess() {
-    const target = document.getElementById('success-details');
-    if (!target) return;
-    let receipt = null;
-    try { receipt = JSON.parse(sessionStorage.getItem(RECEIPT_KEY) || 'null'); } catch { /* Invalid session data is not a completed order. */ }
-    const items = normalizeItems(receipt?.items, config.products);
-    const date = new Date(receipt?.createdAt ?? '');
-    if (receipt?.version !== 1 || !items.length || Number.isNaN(date.getTime())) {
-        document.querySelector('#success-root h1').textContent = 'Chưa có đơn hàng mô phỏng';
-        document.querySelector('#success-root > p').textContent = 'Hãy chọn sách và hoàn tất form đặt hàng thử để xem xác nhận tại đây.';
-        document.querySelector('.success-icon').innerHTML = cartIcon;
-        return;
-    }
-    const totals = totalsFor(items);
-    target.innerHTML = `<div class="success-facts"><div class="summary-row"><span>Mã tham chiếu minh họa</span><strong>DEMO-PREVIEW</strong></div><div class="summary-row"><span>Thời gian thử</span><span>${escape(date.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }))}</span></div><div class="summary-row"><span>Người nhận</span><span>Khách hàng mẫu</span></div><div class="summary-row"><span>Thanh toán</span><span>COD · Mô phỏng</span></div><div class="summary-row"><span>Số lượng</span><span>${totals.count} cuốn</span></div><div class="summary-row"><span>Tổng cộng</span><strong>${money(totals.total)}</strong></div><p class="small muted">Thông tin bạn nhập đã được xóa khỏi form, không được lưu. Đơn mô phỏng này không xuất hiện trong danh sách đơn hàng của tài khoản.</p></div>`;
-}
 
 function render() {
     const count = totalsFor(cart.getItems()).count;
@@ -194,4 +229,3 @@ window.addEventListener('storage', event => { if (event.key === CART_KEY || even
 // A page restored from browser history must reread the cart, including after checkout.
 window.addEventListener('pageshow', event => { if (event.persisted) cart.reload(); });
 render();
-renderSuccess();
