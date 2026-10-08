@@ -29,7 +29,8 @@ final class OrderModel
                 dh.trangThai,
                 dh.ghiChu,
 
-                COALESCE(SUM(ctdh.tongTien), 0) AS tongTien,
+				COALESCE(SUM(ctdh.tongTien), 0)
+				+ COALESCE(MAX(dh.phiVanChuyen), 0) AS tongTien,
 
                 COUNT(ctdh.maSach) AS soLoaiSach
 
@@ -72,7 +73,18 @@ final class OrderModel
                 dh.ghiChu,
                 dh.maND,
 
-                COALESCE(SUM(ctdh.tongTien), 0) AS tongTien
+				MAX(dh.tenNguoiNhan) AS tenNguoiNhan,
+				MAX(dh.SDTNguoiNhan) AS SDTNguoiNhan,
+				MAX(dh.emailNguoiNhan) AS emailNguoiNhan,
+				MAX(dh.diaChiGiao) AS diaChiGiao,
+				MAX(dh.phuongThucTT) AS phuongThucTT,
+
+				COALESCE(MAX(dh.phiVanChuyen), 0) AS phiVanChuyen,
+
+				COALESCE(SUM(ctdh.tongTien), 0) AS tienSach,
+
+				COALESCE(SUM(ctdh.tongTien), 0)
+				    + COALESCE(MAX(dh.phiVanChuyen), 0) AS tongTien
 
             FROM donhang dh
 

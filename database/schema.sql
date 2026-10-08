@@ -138,6 +138,13 @@ CREATE TABLE IF NOT EXISTS donhang (
                 tongSL INT NOT NULL DEFAULT 0,
                 trangThai VARCHAR(50) NOT NULL DEFAULT 'ChoXacNhan',
                 ghiChu VARCHAR(500),
+                tenNguoiNhan VARCHAR(80) NULL,
+    			SDTNguoiNhan VARCHAR(20) NULL,
+    			emailNguoiNhan VARCHAR(100) NULL,
+    			diaChiGiao VARCHAR(400) NULL,
+    			phuongThucTT VARCHAR(20) NOT NULL DEFAULT 'COD',
+    			phiVanChuyen DECIMAL(15,2) NOT NULL DEFAULT 0,
+    			tongThanhToan DECIMAL(15,2) NOT NULL DEFAULT 0,
                 maND INT NOT NULL,
 
                 CONSTRAINT CK_DonHang_TongSL

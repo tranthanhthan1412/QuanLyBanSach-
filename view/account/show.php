@@ -13,10 +13,48 @@
             </div>
             <?php endforeach; ?>
             <div class="summary-row"><span>Số lượng</span><span><?= (int) $order['tongSL'] ?> cuốn</span></div>
-            <div class="summary-row summary-total"><span>Tổng tiền sách</span><strong><?= money($order['tongTien']) ?></strong></div>
+			
+			<div class="summary-row">
+			    <span>Tiền sách</span>
+			    <strong><?= e(money($order['tienSach'])) ?></strong>
+			</div>
+
+			<div class="summary-row">
+			    <span>Phí vận chuyển</span>
+			    <strong><?= e(money($order['phiVanChuyen'])) ?></strong>
+			</div>
+
+			<div class="summary-row summary-total">
+			    <span>Tổng thanh toán</span>
+			    <strong><?= e(money($order['tongTien'])) ?></strong>
+			</div>
+
         </section>
         <aside class="panel">
             <h2>Ghi chú</h2>
+			
+			<h2>Thông tin nhận hàng</h2>
+
+			<p>
+			    <strong>Người nhận:</strong>
+			    <?= e($order['tenNguoiNhan'] ?: 'Chưa có thông tin') ?>
+			</p>
+
+			<p>
+			    <strong>Số điện thoại:</strong>
+			    <?= e($order['SDTNguoiNhan'] ?: 'Chưa có') ?>
+			</p>
+
+			<p>
+			    <strong>Địa chỉ giao hàng:</strong>
+			    <?= e($order['diaChiGiao'] ?: 'Chưa có') ?>
+			</p>
+
+			<p>
+			    <strong>Phương thức thanh toán:</strong>
+			    <?= e($order['phuongThucTT']) ?>
+			</p>
+
             <p><?= e($order['ghiChu'] ?: 'Không có ghi chú.') ?></p>
             <a class="text-link back-link" href="<?= e(url('orders')) ?>">← Quay lại đơn hàng</a>
         </aside>
