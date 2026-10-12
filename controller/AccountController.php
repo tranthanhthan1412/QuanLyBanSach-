@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Core\Controller;
 use App\Models\OrderModel;
+use App\Models\CheckoutModel;
 
 final class AccountController extends Controller
 {
@@ -70,9 +71,7 @@ final class AccountController extends Controller
             exit;
         }
 
-        $orderModel = new OrderModel();
-
-        $order = $orderModel->getById(
+        $order = (new CheckoutModel())->find(
             $orderId,
             (int)$user['id']
         );

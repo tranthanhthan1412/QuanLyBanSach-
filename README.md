@@ -1,6 +1,6 @@
 # BookStore — Website bán sách
 
-Dự án PHP thuần theo MVC, chạy trên PHP 8.2+ và MySQL/MariaDB. Danh mục, sách, tài khoản và lịch sử đơn hàng đọc từ database. Đăng ký/đăng nhập đã hoạt động; giỏ hàng vẫn lưu trong trình duyệt và đặt hàng COD vẫn là mô phỏng, chưa tạo đơn hay trừ tồn kho.
+Dự án PHP thuần theo MVC, chạy trên PHP 8.2+ và MySQL/MariaDB. Danh mục, sách, tài khoản và đơn hàng lưu trong database. Giỏ hàng lưu trong trình duyệt; khách đăng nhập có thể đặt đơn COD và nhận email thông tin đơn hàng qua PHPMailer. Admin xác nhận đơn để trừ tồn kho.
 
 ## Chạy lần đầu với XAMPP
 
@@ -16,6 +16,22 @@ Dự án PHP thuần theo MVC, chạy trên PHP 8.2+ và MySQL/MariaDB. Danh m�
 5. Vào **Đăng ký** để tạo tài khoản, sau đó đăng nhập. Không có tài khoản hay mật khẩu mặc định.
 
 Không cần Composer, npm hoặc Node.js để chạy website. Node.js chỉ cần khi chạy kiểm thử tự động.
+
+## Gửi email đơn hàng bằng PHPMailer
+
+Thư viện [PHPMailer 7.1.1](https://github.com/PHPMailer/PHPMailer/releases/tag/v7.1.1) đã được đặt trong `libs/PHPMailer/`, kèm giấy phép; không cần cài Composer. Chức năng này gửi **thông tin đơn vừa đặt**, không phải xác thực đăng ký hay quên mật khẩu.
+
+1. Chạy lại `& C:\xampp\php\php.exe database\setup.php` để bổ sung các cột lưu người nhận, phí vận chuyển, trạng thái email và tên sách tại thời điểm mua. Không xóa đơn hoặc tài khoản đang có.
+2. Sao chép `config/mail.local.example.php` thành `config/mail.local.php`.
+3. Điền `username`, `password`, `from_email` bằng thông tin SMTP của bạn; giữ `enabled => true`. File `mail.local.php` đã được bỏ qua bởi Git và nằm trong thư mục bị chặn truy cập trực tiếp trên Apache.
+4. Với Gmail: dùng `smtp.gmail.com`, cổng `587`, `encryption => 'tls'`, `username` và `from_email` là Gmail gửi thư. Bật xác minh hai bước rồi tạo **Mật khẩu ứng dụng (App Password)** theo [hướng dẫn Google](https://support.google.com/accounts/answer/185833), dùng mật khẩu ứng dụng thay cho mật khẩu đăng nhập. Nếu tài khoản không hỗ trợ App Password, dùng SMTP được nhà cung cấp của bạn cấp.
+5. Đăng nhập website bằng tài khoản có email bạn nhận được thư, thêm sách vào giỏ, điền thông tin giao hàng và bấm **Đặt hàng**. Email gửi đến email tài khoản đang đăng nhập, gồm mã đơn, danh sách sách, số lượng, thành tiền, phí vận chuyển, tổng COD, người nhận, địa chỉ và ghi chú.
+
+PHP cần extension `openssl` để kết nối SMTP có TLS. Không tắt kiểm tra chứng chỉ TLS. Nếu mail lỗi, kiểm tra thông tin SMTP, App Password, kết nối mạng và cấu hình chứng chỉ CA của PHP. Trạng thái gửi xuất hiện ở chi tiết đơn trong admin; website không hiển thị mật khẩu hoặc phản hồi kỹ thuật SMTP.
+
+Mặc định gửi mail tắt khi chưa có cấu hình riêng. Đơn vẫn lưu nếu SMTP chưa cấu hình hoặc gửi lỗi, và trang xác nhận sẽ nói rõ email chưa gửi được. Mail chỉ gửi sau khi đơn cùng chi tiết đơn đã lưu thành công. Gửi lại cùng yêu cầu không tạo trùng đơn hoặc gửi trùng mail. Bản đồ án gửi đồng bộ, chưa có hàng đợi hay tự gửi lại email lỗi; SMTP chấp nhận thư không bảo đảm thư vào Inbox, nên kiểm tra cả Spam.
+
+Có thể dùng biến môi trường thay file cục bộ: `MAIL_ENABLED`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_ENCRYPTION`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_EMAIL`, `MAIL_FROM_NAME`. Biến môi trường có ưu tiên cao hơn file. `MAIL_ENCRYPTION=none` chỉ dành cho máy chủ SMTP kiểm thử cục bộ.
 
 ## Cấu hình database
 
@@ -53,9 +69,10 @@ Website chỉ mở kết nối dùng chung cho mỗi request; không tự tạo 
 - Giỏ hàng lưu ID và số lượng trên trình duyệt; giới hạn theo tồn kho, tính giá và phí giao hàng. Chưa đồng bộ giỏ giữa tài khoản/thiết bị, chưa giữ chỗ tồn kho.
 - Đăng ký, đăng nhập bằng mật khẩu đã hash; biểu mẫu có CSRF token, session được đổi ID khi đăng nhập/đăng xuất. Đăng xuất dùng POST.
 - Trang tài khoản hiển thị dữ liệu người dùng đang đăng nhập. Danh sách và chi tiết đơn hàng chỉ đọc đơn của người dùng đó; dùng số tiền đã lưu trong chi tiết đơn.
-- **Đặt hàng COD và nhận bản tin vẫn là demo.** Cần JavaScript; thông tin người nhận/email nhận tin không được lưu. Hoàn tất đặt hàng thử sẽ xóa giỏ và tạo xác nhận tạm trong phiên trình duyệt; không tạo bản ghi đơn hàng trong MySQL.
+- Đặt hàng COD cần đăng nhập và JavaScript. Server lấy giá sách từ database, kiểm tra tồn kho và lưu đơn trong transaction. Giỏ chỉ xóa khi nhận được xác nhận thành công. Tồn kho được trừ khi admin xác nhận, hoàn lại khi hủy đơn đã trừ kho; đơn chờ chưa giữ chỗ tồn kho. Email gửi qua PHPMailer sau khi lưu đơn.
+- Form nhận bản tin vẫn là demo; email nhận bản tin không được gửi hoặc lưu.
 - Phân quyền `Admin` (quản trị viên) và `User` (khách hàng) ở phía server. Admin có trang tổng quan số đầu sách, tồn kho, khách hàng và đơn hàng; khách hàng truy cập trang này nhận HTTP 403.
-- Chưa có thêm/sửa/xóa sách trên trang quản trị, chỉnh sửa hồ sơ, đặt hàng thật, cập nhật trạng thái đơn, thanh toán online hay báo cáo doanh thu.
+- Admin có thêm/sửa/xóa/ẩn sách, quản lý thể loại/tác giả/nhà xuất bản, khóa và phân quyền tài khoản, xử lý trạng thái đơn, nhật ký và tổng doanh thu. Chưa có chỉnh sửa hồ sơ khách hàng, thanh toán online hoặc báo cáo doanh thu theo kỳ.
 
 Ví dụ URL: `index.php?route=products`, `index.php?route=product&id=1`, `index.php?route=cart`. ID sách thực tế tùy dữ liệu trong database; nên mở sách từ danh sách.
 
@@ -77,7 +94,7 @@ Ví dụ URL: `index.php?route=products`, `index.php?route=product&id=1`, `index
 
 Lệnh chỉ chạy bằng CLI, dùng cấu hình database hiện tại, không tạo tài khoản mới. Quyền được đọc lại từ database mỗi request; thay đổi quyền có hiệu lực ở request tiếp theo, không cần đăng xuất. Tài khoản bị xóa hoặc có vai trò không hỗ trợ sẽ mất phiên xác thực.
 
-Trang tài khoản và đơn hàng yêu cầu đăng nhập; cả hai vai trò chỉ xem được đơn của chính mình ở các trang này. Danh mục, giỏ hàng và luồng đặt hàng mô phỏng vẫn truy cập công khai. Trang quản trị hiện cung cấp tổng quan, chưa có chức năng sửa dữ liệu.
+Trang tài khoản, thao tác đặt hàng và xem đơn yêu cầu đăng nhập; cả hai vai trò chỉ xem được đơn của chính mình ở phía khách hàng. Danh mục và giỏ hàng truy cập công khai. Trang quản trị cho phép admin quản lý dữ liệu và xem đơn của cửa hàng.
 
 Khi thêm route quản trị, khai báo danh sách quyền ở cả GET và POST, ví dụ `$router->get('admin', [AdminController::class, 'index'], ['Admin']);`. Route có danh sách quyền rỗng là công khai. Router kiểm tra quyền trước khi chạy controller; POST vẫn cần CSRF token hợp lệ. Không dùng việc ẩn menu làm kiểm soát truy cập.
 
@@ -95,6 +112,10 @@ Kiểm thử tích hợp (cần Node.js 22+, MySQL đang chạy, PHP CLI và quy
 ```powershell
 node tests\smoke.mjs
 ```
+
+Bộ test còn khởi tạo SMTP giả trên `127.0.0.1` để kiểm tra nội dung email, địa chỉ nhận từ tài khoản, lỗi SMTP không làm mất đơn, kiểm tra dữ liệu phía server và gửi lặp không tạo trùng. Test ghi đè cấu hình SMTP bằng môi trường riêng, không gửi email ra ngoài và không dùng mật khẩu mail cục bộ.
+
+Kiểm tra thêm luồng đặt hàng bằng Chrome/Edge cài trên máy: đặt `$env:RUN_BROWSER_TEST = '1'` rồi chạy `node tests\smoke.mjs`. Có thể đặt `BROWSER_BIN` trỏ đến trình duyệt Chromium. Bài test dùng profile tạm và SMTP giả, kiểm tra gửi form trực tiếp được đưa về giao diện, giữ thông tin đã nhập, gửi giỏ bằng JavaScript, xóa giỏ sau thành công và tải đúng phiên bản các module. Website gắn mã phiên bản theo nội dung cho cả `app.js` và các module được import để tránh dùng JavaScript cũ sau khi cập nhật code.
 
 Bài test tự tạo database riêng có tên `bookstore_test_<pid>_<timestamp>`, chạy setup hai lần, kiểm tra giữ nguyên dữ liệu, danh mục/tìm kiếm/ảnh, đăng ký/đăng nhập/đăng xuất, CSRF và quyền xem đơn hàng. Test cũng kiểm tra chặn khách hàng vào trang admin, điều hướng theo vai trò, bỏ qua vai trò giả mạo khi đăng ký, cấp/thu hồi quyền ngay trong phiên hiện tại và vô hiệu hóa phiên của tài khoản bị xóa hoặc có vai trò lạ. Test mở PHP server trên cổng trống, dùng session tạm trong `tests/.tmp-*/`, rồi dừng server và xóa database test. Không ghi vào database đang dùng cho website. Có thể đặt `PHP_BIN` nếu PHP nằm ở đường dẫn khác.
 

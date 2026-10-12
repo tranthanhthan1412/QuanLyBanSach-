@@ -79,6 +79,13 @@ function asset(string $path): string
     return base_url() . $directory . ltrim($path, '/');
 }
 
+/** A changed script must get a new URL, including imported ES modules. */
+function versioned_asset(string $path): string
+{
+    $version = substr(hash_file('sha256', ROOT_PATH . '/public/assets/' . ltrim($path, '/')), 0, 16);
+    return asset($path) . '?v=' . $version;
+}
+
 function money(int|float|string $value): string
 {
     return number_format((float) $value, 0, ',', '.') . ' ₫';

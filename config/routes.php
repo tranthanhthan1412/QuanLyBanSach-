@@ -13,7 +13,7 @@ $router->get('products', [ProductController::class, 'index']);
 $router->get('product', [ProductController::class, 'show']);
 $router->get('cart', [CartController::class, 'index']);
 $router->get('checkout', [CheckoutController::class, 'index']);
-$router->post('checkout', [CheckoutController::class, 'place']);
+$router->post('checkout', [CheckoutController::class, 'store'], ['Admin', 'User']);
 $router->get('order-success', [CheckoutController::class, 'success']);
 $router->get('login', [AuthController::class, 'login']);
 $router->post('login', [AuthController::class, 'login']);

@@ -32,6 +32,10 @@ class Controller
             'products' => $clientProducts,
             'shippingFee' => config('shipping_fee'),
             'freeShippingFrom' => config('free_shipping_from'),
+            'modules' => [
+                'cart' => versioned_asset('js/cart-store.js'),
+                'forms' => versioned_asset('js/demo.js'),
+            ],
             'urls' => [
                 'products' => url('products'),
                 'checkout' => url('checkout'),

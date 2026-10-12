@@ -14,6 +14,7 @@ define('ROOT_PATH', dirname(__DIR__));
 spl_autoload_register(function (string $class): void {
 
     $namespaces = [
+        'PHPMailer\\PHPMailer\\' => '/libs/PHPMailer/src/',
         'App\\Controllers\\' => '/controller/',
         'App\\Models\\' => '/model/',
         'App\\Core\\' => '/libs/',

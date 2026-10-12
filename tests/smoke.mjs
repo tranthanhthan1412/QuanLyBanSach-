@@ -6,11 +6,17 @@ import net from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { mkdtempSync, readdirSync, unlinkSync, rmdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { smtpSink } from './smtp-server.mjs';
+import { browserCheckout } from './browser-checkout.mjs';
 
 const cwd = fileURLToPath(new URL('../', import.meta.url));
 const php = process.env.PHP_BIN || (process.platform === 'win32' ? 'C:\\xampp\\php\\php.exe' : 'php');
 const database = `bookstore_test_${process.pid}_${Date.now()}`;
-const env = { ...process.env, DB_NAME: database };
+const smtp = await smtpSink();
+const env = { ...process.env, DB_NAME: database,
+    MAIL_ENABLED: 'true', MAIL_HOST: '127.0.0.1', MAIL_PORT: String(smtp.port), MAIL_ENCRYPTION: 'none',
+    MAIL_USERNAME: '', MAIL_PASSWORD: '', MAIL_FROM_EMAIL: 'bookstore@example.test', MAIL_FROM_NAME: 'BookStore',
+};
 // The parent tests/ directory is protected by .htaccess; remove this directory after each run.
 const sessions = mkdtempSync(join(cwd, 'tests', '.tmp-'));
 let server;
@@ -28,10 +34,10 @@ function sql(body) {
 class Client {
     cookie = '';
     constructor(base) { this.base = base; }
-    async request(route, method = 'GET', values = {}) {
+    async request(route, method = 'GET', values = {}, accept = 'application/json') {
         const response = await fetch(`${this.base}/index.php?${route}`, {
             method, redirect: 'manual',
-            headers: { Cookie: this.cookie, ...(method === 'POST' ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}) },
+            headers: { Cookie: this.cookie, Accept: accept, ...(method === 'POST' ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}) },
             body: method === 'POST' ? new URLSearchParams(values) : undefined,
         });
         const cookie = response.headers.getSetCookie().find(value => value.startsWith('PHPSESSID='));
@@ -89,6 +95,9 @@ try {
     assert.equal(typeof data.products[0].id, 'number');
     assert.equal(typeof data.products[0].price, 'number');
     assert.equal(typeof data.products[0].stock, 'number');
+    assert.match(home.html, /js\/app\.js\?v=[a-f0-9]{16}/);
+    assert.match(data.modules.cart, /cart-store\.js\?v=[a-f0-9]{16}$/);
+    assert.match(data.modules.forms, /demo\.js\?v=[a-f0-9]{16}$/);
     assert.equal((await fetch(base + data.products[0].image)).status, 200);
     sql("$db->exec(\"INSERT INTO theloai (tenTL) VALUES ('Custom category')\"); $db->exec('UPDATE sach SET hinhAnh = NULL WHERE maSach = 1');");
     assert.equal((await guest.request('route=home')).status, 200);
@@ -101,7 +110,7 @@ try {
     assert.equal(adminGuest.headers.get('location'), '/index.php?route=login');
     assert.equal((await guest.request('route=logout')).status, 405);
     assert.equal((await guest.request('route=home', 'POST')).status, 405);
-    assert.equal((await guest.request('route=checkout', 'POST')).status, 405);
+    assert.equal((await guest.request('route=checkout', 'POST')).status, 303);
     assert.equal((await guest.request('route=register', 'POST', { email: 'missing@example.test' })).status, 403);
 
     let page = await guest.request('route=register');
@@ -133,6 +142,69 @@ try {
     const loggedInToken = guest.token(page.html);
     assert.notEqual(loggedInToken, token);
     assert.match((await guest.request('route=orders')).html, /Bạn chưa có đơn hàng nào/);
+
+    // Real checkout: server prices, ownership, SMTP delivery and idempotent retry.
+    page = await guest.request('route=checkout');
+    const checkout = {
+        csrf_token: guest.token(page.html),
+        checkout_token: page.html.match(/name="checkout_token" value="([a-f0-9]{64})"/)[1],
+        name: 'Khách <script>test</script>', phone: '0901234567',
+        province: 'TP Hồ Chí Minh', ward: 'Phường Sài Gòn', address: '123 Đường Sách',
+        note: '<script>alert(1)</script>', payment: 'cod',
+        items: JSON.stringify([{ id: 1, qty: 2, price: 1 }]), total: '1', email: 'forged@example.test',
+    };
+    assert.equal((await guest.request('route=checkout', 'POST', { ...checkout, csrf_token: '' })).status, 403);
+    const nativeSubmit = await guest.request('route=checkout', 'POST', { ...checkout, items: '' }, 'text/html');
+    assert.equal(nativeSubmit.status, 303);
+    assert.equal(nativeSubmit.headers.get('location'), '/index.php?route=checkout');
+    const recovered = await guest.request('route=checkout');
+    assert.match(recovered.html, /Chưa gửi được giỏ hàng/);
+    assert.match(recovered.html, /value="Khách &lt;script&gt;test&lt;\/script&gt;"/);
+    for (const invalid of [
+        { items: '[]' }, { items: JSON.stringify([{ id: 1, qty: -1 }]) },
+        { items: JSON.stringify([{ id: 1, qty: 99999 }]) },
+        { items: JSON.stringify([{ id: 999999, qty: 1 }]) },
+        { phone: 'bad' }, { payment: 'online' }, { checkout_token: '0'.repeat(64) },
+    ]) assert.equal((await guest.request('route=checkout', 'POST', { ...checkout, ...invalid })).status, 422);
+    assert.equal(sql("echo $db->query('SELECT COUNT(*) FROM donhang')->fetchColumn();"), '0');
+    assert.equal(smtp.messages.length, 0);
+    const placed = await guest.request('route=checkout', 'POST', checkout);
+    assert.equal(placed.status, 200);
+    const receipt = JSON.parse(placed.html);
+    assert.equal(receipt.ok, true);
+    const placedId = Number(new URL(receipt.url, base).searchParams.get('id'));
+    const stored = JSON.parse(sql(`echo json_encode($db->query('SELECT * FROM donhang WHERE maDH = ${placedId}')->fetch());`));
+    assert.equal(stored.emailNhan, registration.email);
+    assert.equal(stored.trangThaiEmail, 'sent');
+    assert.equal(Number(stored.phiVanChuyen), 25000);
+    assert.equal(sql(`echo $db->query('SELECT tongTien FROM chitietdonhang WHERE maDH = ${placedId}')->fetchColumn();`), '178000.00');
+    assert.equal(sql("echo $db->query('SELECT tonKho FROM sach WHERE maSach = 1')->fetchColumn();"), '37');
+    assert.equal(smtp.messages.length, 1);
+    assert.match(smtp.messages[0].recipient, /smoke@example.test/);
+    const emailHtml = smtp.messages[0].body.slice(smtp.messages[0].body.indexOf('<!doctype html>'));
+    assert.doesNotMatch(emailHtml, /<script>/);
+    assert.match(emailHtml, /&lt;script&gt;/);
+    assert.match(smtp.messages[0].body, /203\.000/);
+    assert.deepEqual(JSON.parse((await guest.request('route=checkout', 'POST', checkout)).html), receipt);
+    assert.equal(smtp.messages.length, 1);
+    assert.equal(sql("echo $db->query('SELECT COUNT(*) FROM donhang')->fetchColumn();"), '1');
+    assert.match((await guest.request(`route=order-success&id=${placedId}`)).html, /đã được gửi đến/);
+    assert.equal((await (new Client(base)).request(`route=order-success&id=${placedId}`)).status, 404);
+    assert.match((await guest.request(`route=order&id=${placedId}`)).html, /203\.000/);
+    // SMTP failure must not roll back the order or report it as emailed.
+    page = await guest.request('route=checkout');
+    const failureCheckout = { ...checkout, checkout_token: page.html.match(/name="checkout_token" value="([a-f0-9]{64})"/)[1] };
+    smtp.rejectNext();
+    const failedMail = JSON.parse((await guest.request('route=checkout', 'POST', failureCheckout)).html);
+    const failedMailId = Number(new URL(failedMail.url, base).searchParams.get('id'));
+    assert.equal(sql(`echo $db->query('SELECT trangThaiEmail FROM donhang WHERE maDH = ${failedMailId}')->fetchColumn();`), 'failed');
+    assert.match((await guest.request(`route=order-success&id=${failedMailId}`)).html, /Email xác nhận chưa gửi được/);
+    assert.equal(smtp.messages.length, 1);
+
+    if (process.env.RUN_BROWSER_TEST === '1') {
+        await browserCheckout(base, guest.cookie);
+        assert.equal(smtp.messages.length, 2);
+    }
 
     const orders = JSON.parse(sql(`
         $user = (int) $db->query("SELECT maND FROM nguoidung WHERE email = 'smoke@example.test'")->fetchColumn();
@@ -312,8 +384,9 @@ try {
     `);
     assert.match(unavailable, /HTTP_STATUS=503/);
     assert.doesNotMatch(unavailable, /SQLSTATE|PDOException|Stack trace/);
-    console.log(`PASS: ${checks} HTTP checks; setup rerun, data preservation, catalog, auth, CSRF, roles, role revocation, order ownership.`);
+    console.log(`PASS: ${checks} HTTP checks; setup, catalog, auth, CSRF, roles, order ownership, checkout, SMTP success/failure, duplicate submission.`);
 } finally {
+    await smtp.close();
     if (server && server.exitCode === null) {
         const closed = once(server, 'exit');
         server.kill();

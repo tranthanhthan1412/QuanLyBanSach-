@@ -34,6 +34,6 @@
                 <small>Form minh họa. Email không được gửi hoặc lưu.</small>
             </div>
         </div>
-        <div class="footer-bottom"><span>© <?= date('Y') ?> BookStore. Đồ án nhóm 3 sinh viên.</span><span class="payment-note">Phương thức thanh toán: <span class="tag">COD · Mô phỏng</span></span></div>
+        <div class="footer-bottom"><span>© <?= date('Y') ?> BookStore. Đồ án nhóm 3 sinh viên.</span><span class="payment-note">Phương thức thanh toán: <span class="tag">COD</span></span></div>
     </div>
 </footer>

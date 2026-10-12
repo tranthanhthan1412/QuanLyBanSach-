@@ -27,6 +27,8 @@ try {
 
     require_once __DIR__ . '/admin-migration.php';
     migrate_admin($db);
+    require_once __DIR__ . '/checkout-migration.php';
+    migrate_checkout($db);
     $db->beginTransaction();
     $role = $db->prepare('INSERT INTO vaitro (tenVT, moTa) SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM vaitro WHERE tenVT = ?)');
     foreach (['Admin' => 'Quản trị viên', 'User' => 'Khách hàng'] as $name => $description) {

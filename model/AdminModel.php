@@ -594,39 +594,10 @@ final class AdminModel
 
     public function order(int $id): ?array
     {
-        $order = $this->query(
-            'SELECT
-                dh.*,
-                nd.tenND,
-                nd.email,
-                nd.SDT,
-                nd.diaChi
-             FROM donhang dh
-             JOIN nguoidung nd ON nd.maND = dh.maND
-             WHERE dh.maDH = ?',
-            [$id]
-        )->fetch();
-
-        if (!$order) {
-            return null;
-        }
-
-        $order['items'] = $this->query(
-            'SELECT
-                ct.*,
-                s.tenSach,
-                s.tonKho
-             FROM chitietdonhang ct
-             JOIN sach s ON s.maSach = ct.maSach
-             WHERE ct.maDH = ?
-             ORDER BY ct.maSach',
-            [$id]
-        )->fetchAll();
-
-        $order['total'] = array_sum(
-            array_column($order['items'], 'tongTien')
-        );
-
+        $order = $this->query('SELECT dh.*, nd.tenND, nd.email, nd.SDT, nd.diaChi FROM donhang dh JOIN nguoidung nd ON nd.maND = dh.maND WHERE dh.maDH = ?', [$id])->fetch();
+        if (!$order) { return null; }
+        $order['items'] = $this->query('SELECT ct.*, COALESCE(ct.tenSachLucMua, s.tenSach) AS tenSach, s.tonKho FROM chitietdonhang ct JOIN sach s ON s.maSach = ct.maSach WHERE ct.maDH = ? ORDER BY ct.maSach', [$id])->fetchAll();
+        $order['total'] = array_sum(array_column($order['items'], 'tongTien'));
         return $order;
     }
 

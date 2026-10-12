@@ -1,5 +1,5 @@
-// No fetch, form POST, authentication state, or personal-data persistence here.
-// Form submission only validates and calls the explicit demo callbacks below.
+// Shared form validation. Checkout calls the real server handler supplied by app.js;
+// newsletter remains a demo.
 function validateField(field, form) {
     const value = field.value.trim();
     if (field.required && !value) return 'Vui lòng nhập thông tin này.';
@@ -31,7 +31,7 @@ export function showFormResult(form, message, error = false) {
 }
 
 export function initDemoForms({ checkout, notify }) {
-    for (const form of document.querySelectorAll('[data-demo-form]')) {
+    for (const form of document.querySelectorAll('[data-demo-form], [data-checkout-form]')) {
         const fields = [...form.querySelectorAll('input:not([type=radio]):not([type=hidden]), textarea')];
         for (const field of fields) {
             field.addEventListener('input', () => {
@@ -48,7 +48,7 @@ export function initDemoForms({ checkout, notify }) {
             }
             if (firstInvalid) { firstInvalid.focus(); return; }
             const kind = form.dataset.demoForm;
-            if (kind === 'checkout') { checkout(form); return; }
+            if (form.hasAttribute('data-checkout-form')) { checkout(form); return; }
             form.reset();
             for (const input of form.querySelectorAll('input[name=password], input[name=confirm]')) input.type = 'password';
             for (const toggle of form.querySelectorAll('[data-toggle-password]')) {

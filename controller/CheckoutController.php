@@ -4,101 +4,80 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Controller;
-use App\Models\CodOrderModel;
-use App\Models\OrderModel;
+use App\Core\OrderMailer;
+use App\Models\CheckoutModel;
 use DomainException;
-use Throwable;
 
 final class CheckoutController extends Controller
 {
     public function index(): void
     {
-        $_SESSION['checkout_nonce'] ??= bin2hex(random_bytes(24));
-        $this->render('checkout/index', [
-            'title' => 'Thông tin đặt hàng',
-            'loggedIn' => current_user() !== null,
-        ]);
+        $_SESSION['checkout_token'] ??= bin2hex(random_bytes(32));
+        $error = $_SESSION['checkout_error'] ?? '';
+        $old = $_SESSION['checkout_old'] ?? [];
+        unset($_SESSION['checkout_error'], $_SESSION['checkout_old']);
+        $this->render('checkout/index', ['title' => 'Thông tin đặt hàng', 'user' => current_user(), 'error' => $error, 'old' => $old]);
     }
 
-    private function respond(int $status, array $data): void
+    public function store(): void
     {
-        http_response_code($status);
-        header('Content-Type: application/json; charset=UTF-8');
-        echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    }
-
-    public function place(): void
-    {
-        $user = current_user();
-        if ($user === null) {
-            $this->respond(401, ['ok' => false, 'message' => 'Vui lòng đăng nhập trước khi đặt hàng.', 'loginUrl' => url('login')]);
-            return;
-        }
-        $nonce = post_string('checkout_nonce');
-        if ($nonce === '' || !hash_equals((string) ($_SESSION['checkout_nonce'] ?? ''), $nonce)) {
-            $this->respond(409, ['ok' => false, 'message' => 'Phiên đặt hàng đã hết hạn hoặc đơn đã được gửi. Hãy tải lại trang.']);
-            return;
-        }
-        $name = post_string('name');
-        $phone = preg_replace('/[\s.\-]/', '', post_string('phone'));
-        $email = post_string('email');
-        $province = post_string('province');
-        $ward = post_string('ward');
-        $address = post_string('address');
-        $note = post_string('note');
-        $payment = post_string('payment');
-        $len = static function (string $text): int {
-            return function_exists('mb_strlen') ? mb_strlen($text, 'UTF-8') : strlen($text);
-        };
-        if ($len($name) < 2 || $len($name) > 80
-            || !preg_match('/^(0\d{9}|\+84\d{9})$/D', $phone)
-            || ($email !== '' && ($len($email) > 100 || !filter_var($email, FILTER_VALIDATE_EMAIL)))
-            || $len($province) < 2 || $len($province) > 80
-            || $len($ward) < 2 || $len($ward) > 80
-            || $len($address) < 5 || $len($address) > 200
-            || $len($note) > 500 || $payment !== 'cod') {
-            $this->respond(422, ['ok' => false, 'message' => 'Thông tin nhận hàng không hợp lệ. Vui lòng kiểm tra lại biểu mẫu.']);
-            return;
-        }
-        try {
-            $items = json_decode(post_string('items'), true, 512, JSON_THROW_ON_ERROR);
-            if (!is_array($items) || !array_is_list($items)) {
-                throw new DomainException('Giỏ hàng không hợp lệ.');
+        // A stale/missing JS handler submits a native form without cart data.
+        // Return to the form instead of displaying the JSON endpoint as a page.
+        if (!str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json')) {
+            $_SESSION['checkout_error'] = 'Chưa gửi được giỏ hàng. Vui lòng kiểm tra lại thông tin và bấm Đặt hàng.';
+            $_SESSION['checkout_old'] = [];
+            foreach (['name' => 80, 'phone' => 30, 'province' => 80, 'ward' => 80, 'address' => 200, 'note' => 500] as $key => $limit) {
+                $_SESSION['checkout_old'][$key] = mb_substr(post_string($key), 0, $limit);
             }
-            $orderId = (new CodOrderModel())->create((int) $user['id'], $items, [
-                'name' => $name, 'phone' => $phone, 'email' => $email,
-                'address' => implode(', ', [$address, $ward, $province]), 'note' => $note,
-            ]);
-        } catch (DomainException|\JsonException $error) {
-            $this->respond(422, ['ok' => false, 'message' => $error->getMessage()]);
-            return;
-        } catch (Throwable $error) {
-            error_log((string) $error);
-            $this->respond(503, ['ok' => false, 'message' => 'Không thể lưu đơn hàng lúc này. Vui lòng thử lại.']);
+            header('Location: ' . url('checkout'), true, 303);
             return;
         }
-        // Invalidate the one-time submission before returning. A second click will not insert twice.
-        unset($_SESSION['checkout_nonce']);
-        $this->respond(201, [
-            'ok' => true,
-            'orderId' => $orderId,
-            'redirect' => url('order-success', ['id' => $orderId]),
-        ]);
+        header('Content-Type: application/json; charset=UTF-8');
+        $user = current_user();
+        $model = new CheckoutModel();
+        try {
+            $token = post_string('checkout_token');
+            if (!preg_match('/^[a-f0-9]{64}$/D', $token)) { throw new DomainException('Phiên đặt hàng không hợp lệ. Vui lòng tải lại trang.'); }
+            // A retried request returns the same order and never sends a second email.
+            $order = $model->byToken($token, $user['id']);
+            if (!$order) {
+                if (!hash_equals($_SESSION['checkout_token'] ?? '', $token)) {
+                    throw new DomainException('Phiên đặt hàng đã hết hạn. Vui lòng tải lại trang.');
+                }
+                $data = [];
+                foreach (['name' => [2, 80], 'province' => [2, 80], 'ward' => [2, 80], 'address' => [5, 200], 'note' => [0, 500]] as $key => [$min, $max]) {
+                    $data[$key] = post_string($key);
+                    if (mb_strlen($data[$key]) < $min || mb_strlen($data[$key]) > $max) {
+                        throw new DomainException('Vui lòng kiểm tra họ tên, địa chỉ và ghi chú theo độ dài cho phép.');
+                    }
+                }
+                $data['phone'] = preg_replace('/[\s.-]/', '', post_string('phone'));
+                if (!preg_match('/^(0|\+84)[0-9]{9}$/D', $data['phone'])) { throw new DomainException('Số điện thoại không hợp lệ.'); }
+                if (!filter_var($user['email'], FILTER_VALIDATE_EMAIL)) { throw new DomainException('Email tài khoản không hợp lệ.'); }
+                if (post_string('payment') !== 'cod') { throw new DomainException('Hiện chỉ hỗ trợ thanh toán khi nhận hàng (COD).'); }
+                $raw = post_string('items');
+                if (strlen($raw) > 20000) { throw new DomainException('Giỏ hàng quá lớn.'); }
+                $items = json_decode($raw, true);
+                if (!is_array($items)) { throw new DomainException('Dữ liệu giỏ hàng không hợp lệ.'); }
+                $order = $model->create($user, $data, $items, $token);
+                unset($_SESSION['checkout_token']);
+                // The order remains saved even when SMTP is unavailable.
+                $mailStatus = (new OrderMailer())->send($order);
+                $model->recordMailStatus((int) $order['maDH'], $mailStatus);
+            }
+            echo json_encode(['ok' => true, 'url' => url('order-success', ['id' => $order['maDH']])], JSON_UNESCAPED_UNICODE);
+        } catch (DomainException $error) {
+            http_response_code(422);
+            echo json_encode(['ok' => false, 'message' => $error->getMessage()], JSON_UNESCAPED_UNICODE);
+        }
     }
 
     public function success(): void
     {
         $user = current_user();
-        if ($user === null) {
-            header('Location: ' . url('login'), true, 302);
-            return;
-        }
         $id = (int) query('id', '0');
-        $order = $id > 0 ? (new OrderModel())->getById($id, (int) $user['id']) : null;
-        if ($order === null) {
-            $this->notFound();
-            return;
-        }
-        $this->render('checkout/success', ['title' => 'Đặt hàng COD thành công', 'order' => $order]);
+        $order = $user && $id > 0 ? (new CheckoutModel())->find($id, $user['id']) : null;
+        if ($id > 0 && !$order) { $this->notFound(); return; }
+        $this->render('checkout/success', ['title' => 'Thông tin đặt hàng', 'order' => $order]);
     }
 }

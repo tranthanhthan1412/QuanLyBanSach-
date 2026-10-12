@@ -1,74 +1,22 @@
 
 <div class="container page-content narrow-page">
     <section class="panel success-panel" id="success-root">
-
-        <div class="success-icon">
-            <?= icon('check') ?>
+        <div class="success-icon"><?= icon($order ? 'check' : 'cart') ?></div>
+        <h1><?= $order ? 'Đặt hàng thành công!' : 'Chưa có thông tin đơn hàng' ?></h1>
+        <?php if ($order): ?>
+        <p>Cảm ơn bạn đã mua sách tại BookStore. Đơn hàng #<?= e($order['maDH']) ?> đang <?= e(mb_strtolower(order_status($order['trangThai'])[0])) ?>.</p>
+        <p class="notice"><?php if ($order['trangThaiEmail'] === 'sent'): ?>Thông tin đơn hàng đã được gửi đến <?= e($order['emailNhan']) ?>. Bạn có thể kiểm tra thêm thư mục Spam.
+        <?php else: ?>Đơn hàng đã được lưu. Email xác nhận chưa gửi được; bạn có thể xem đầy đủ thông tin trong mục Đơn hàng của bạn.<?php endif; ?></p>
+        <div class="success-facts">
+            <div class="summary-row"><span>Ngày đặt</span><span><?= e($order['ngayTao']) ?></span></div>
+            <div class="summary-row"><span>Người nhận</span><span><?= e($order['tenNguoiNhan']) ?></span></div>
+            <div class="summary-row"><span>Điện thoại</span><span><?= e($order['sdtNhan']) ?></span></div>
+            <div class="summary-row"><span>Giao đến</span><span><?= e($order['diaChiNhan']) ?></span></div>
+            <?php foreach ($order['items'] as $item): ?><div class="summary-row"><span><?= e($item['tenSach']) ?> × <?= (int) $item['soLuong'] ?></span><strong><?= money($item['tongTien']) ?></strong></div><?php endforeach; ?>
+            <div class="summary-row"><span>Phí vận chuyển</span><span><?= money($order['phiVanChuyen']) ?></span></div>
+            <div class="summary-row summary-total"><span>Tổng thanh toán (COD)</span><strong><?= money($order['total']) ?></strong></div>
         </div>
-
-        <span class="tag">ĐƠN HÀNG COD ĐÃ LƯU</span>
-
-        <h1>Đặt hàng thành công!</h1>
-
-        <p>
-            Đơn hàng #<?= (int) $order['maDH'] ?>
-            đã được lưu vào MySQL và đang chờ xác nhận.
-            <br>
-            Bạn sẽ thanh toán khi nhận hàng.
-        </p>
-
-        <div class="success-facts" id="success-details">
-
-            <div class="summary-row">
-                <span>Mã đơn hàng</span>
-                <strong>#<?= (int) $order['maDH'] ?></strong>
-            </div>
-
-            <div class="summary-row">
-                <span>Trạng thái</span>
-                <strong><?= e(order_status($order['trangThai'])[0]) ?></strong>
-            </div>
-
-            <div class="summary-row">
-                <span>Người nhận</span>
-                <strong><?= e($order['tenNguoiNhan'] ?: $order['tenDH']) ?></strong>
-            </div>
-
-            <div class="summary-row">
-                <span>Phương thức</span>
-                <strong>COD</strong>
-            </div>
-
-            <div class="summary-row">
-                <span>Số lượng</span>
-                <strong><?= (int) $order['tongSL'] ?> cuốn</strong>
-            </div>
-
-            <div class="summary-row">
-                <span>Tiền sách</span>
-                <strong><?= e(money($order['tienSach'])) ?></strong>
-            </div>
-
-            <div class="summary-row">
-                <span>Vận chuyển</span>
-                <strong><?= e(money($order['phiVanChuyen'])) ?></strong>
-            </div>
-
-            <div class="summary-row summary-total">
-                <span>Tổng thanh toán</span>
-                <strong><?= e(money($order['tongTien'])) ?></strong>
-            </div>
-        </div>
-
-        <div class="success-actions">
-            <a class="button" href="<?= e(url('order', ['id' => $order['maDH']])) ?>">
-                Xem chi tiết đơn <?= icon('arrow') ?>
-            </a>
-
-            <a class="button button-outline" href="<?= e(url('products')) ?>">
-                Tiếp tục mua sắm
-            </a>
-        </div>
-
+        <?php else: ?><p>Hãy chọn sách và hoàn tất đặt hàng để xem xác nhận tại đây.</p><?php endif; ?>
+        <div class="success-actions"><a class="button" href="<?= e(url('products')) ?>">Tiếp tục khám phá <?= icon('arrow') ?></a><a class="button button-outline" href="<?= e(url('orders')) ?>">Đơn hàng của bạn</a></div>
     </section>
 </div>

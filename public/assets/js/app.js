@@ -1,7 +1,9 @@
-import { createCart, calculateTotals, CART_KEY } from './cart-store.js';
-import { initDemoForms, showFormResult } from './demo.js';
-
 const config = JSON.parse(document.getElementById('app-data').textContent);
+// PHP provides content-versioned URLs for the full module graph, not just app.js.
+const [{ createCart, calculateTotals, CART_KEY }, { initDemoForms, showFormResult }] = await Promise.all([
+    import(config.modules.cart),
+    import(config.modules.forms),
+]);
 const products = new Map(config.products.map(product => [product.id, product]));
 const currency = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
 const money = value => currency.format(value);
@@ -87,8 +89,8 @@ function summary(totals, checkout = false) {
         <div class="summary-row"><span>Phí vận chuyển</span><span data-shipping>${totals.shipping ? money(totals.shipping) : 'Miễn phí'}</span></div>
         <p class="shipping-hint">${remaining > 0 ? `Thêm ${money(remaining)} để được miễn phí giao hàng.` : 'Đơn hàng đã được miễn phí giao hàng.'}</p>
         <div class="summary-row summary-total"><span>Tổng cộng</span><strong data-total>${money(totals.total)}</strong></div>
-        ${checkout ? '<button type="submit" form="checkout-form" class="button full-width" id="place-order">Đặt hàng COD →</button>' : `<a class="button full-width" href="${escape(config.urls.checkout)}">Tiến hành đặt hàng →</a>`}
-        <p class="summary-footnote">${checkout ? 'Đơn COD được lưu vào hệ thống. Thanh toán khi nhận sách.' : 'Thanh toán khi nhận hàng (COD)'}</p>`;
+        ${checkout ? `<button type="submit" form="checkout-form" class="button full-width" id="place-order" ${submitting ? 'disabled' : ''}>${submitting ? 'Đang xử lý…' : 'Đặt hàng →'}</button>` : `<a class="button full-width" href="${escape(config.urls.checkout)}">Tiến hành đặt hàng →</a>`}
+        <p class="summary-footnote">Thanh toán khi nhận hàng (COD). Đơn hàng chờ cửa hàng xác nhận.</p>`;
 }
 function renderCart() {
     const target = document.getElementById('cart-root');
@@ -146,73 +148,40 @@ function renderCheckout() {
 let submitting = false;
 initDemoForms({
     notify,
-
     async checkout(form) {
         if (submitting) return;
 
         const items = cart.getItems();
-
-        if (!items.length) {
-            renderCheckout();
-            notify('Giỏ hàng đang trống.');
-            return;
-        }
-
-        const button = document.getElementById('place-order');
-
+        if (!items.length) { renderCheckout(); notify('Giỏ hàng đang trống. Vui lòng chọn sách trước.'); return; }
         submitting = true;
-        if (button) button.disabled = true;
-
+        renderCheckout();
+        form.setAttribute('aria-busy', 'true');
         try {
-            form.elements.items.value = JSON.stringify(items);
-
+            const data = new FormData(form);
+            data.set('items', JSON.stringify(items));
             const response = await fetch(form.action, {
-                method: 'POST',
-                body: new FormData(form),
-                headers: {
-                    'Accept': 'application/json'
-                },
-                credentials: 'same-origin'
+                method: 'POST', body: data, credentials: 'same-origin',
+                headers: { Accept: 'application/json' },
             });
-
-            const payload = await response.json();
-
-            if (!response.ok || !payload.ok) {
-                showFormResult(
-                    form,
-                    payload.message || 'Không thể lưu đơn. Hãy thử lại.',
-                    true
-                );
-
-                if (response.status === 401 && payload.loginUrl) {
-                    const link = document.createElement('a');
-                    link.href = payload.loginUrl;
-                    link.textContent = ' Đăng nhập tại đây';
-                    form.querySelector('.form-result').append(link);
-                }
-
-                return;
+            if (!response.headers.get('content-type')?.includes('application/json')) {
+                throw new Error(response.redirected || response.status === 403
+                    ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập và tải lại trang đặt hàng.'
+                    : 'Chưa nhận được xác nhận. Bạn có thể bấm đặt hàng lại; cùng yêu cầu sẽ không tạo trùng đơn.');
             }
-
-            // Chỉ xóa giỏ hàng sau khi MySQL lưu đơn thành công
+            const result = await response.json();
+            if (!response.ok || !result.ok) throw new Error(result.message || 'Không thể đặt hàng. Vui lòng thử lại.');
             cart.clear();
-
-            window.location.assign(payload.redirect);
-
+            window.location.assign(result.url);
         } catch (error) {
-            showFormResult(
-                form,
-                'Không kết nối được máy chủ. Giỏ hàng vẫn được giữ; vui lòng thử lại.',
-                true
-            );
-
+            showFormResult(form, error instanceof TypeError
+                ? 'Mất kết nối. Hãy thử lại để kiểm tra đơn; cùng yêu cầu sẽ không tạo trùng đơn.' : error.message, true);
         } finally {
             submitting = false;
-            if (button) button.disabled = false;
+            form.removeAttribute('aria-busy');
+            renderCheckout();
         }
-    }
+    },
 });
-
 
 function render() {
     const count = totalsFor(cart.getItems()).count;

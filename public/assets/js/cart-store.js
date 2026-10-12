@@ -1,7 +1,6 @@
 // Only product IDs and quantities are persisted. Replace this adapter with an
 // authenticated backend cart when the project enters its backend phase.
 export const CART_KEY = 'bookstore_cart_v1';
-export const RECEIPT_KEY = 'bookstore_demo_order_v1';
 
 export function normalizeItems(value, products) {
     if (!Array.isArray(value)) return [];
@@ -55,7 +54,7 @@ export function createCart(products, storage, onWarning = () => {}) {
             const line = items.find(item => item.id === id);
             const current = line?.qty || 0;
             if (current + qty > known.get(id).stock) {
-                return { ok: false, message: `Tối đa ${known.get(id).stock} cuốn cho mỗi đầu sách trong demo.` };
+                return { ok: false, message: `Tối đa ${known.get(id).stock} cuốn cho đầu sách này.` };
             }
             if (line) line.qty += qty; else items.push({ id, qty });
             persist();

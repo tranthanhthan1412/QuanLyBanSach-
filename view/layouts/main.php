@@ -17,8 +17,8 @@
     </main>
     <?php require ROOT_PATH . '/view/partials/footer.php'; ?>
     <div class="toast-region" id="toast-region" role="status" aria-live="polite" aria-atomic="true"></div>
-    <noscript><div class="noscript-notice">Vui lòng bật JavaScript để dùng giỏ hàng, đặt hàng thử và form nhận bản tin. Bạn vẫn có thể tìm kiếm và xem sách.</div></noscript>
+    <noscript><div class="noscript-notice">Vui lòng bật JavaScript để dùng giỏ hàng, đặt hàng và form nhận bản tin. Bạn vẫn có thể tìm kiếm và xem sách.</div></noscript>
     <script id="app-data" type="application/json"><?= json_encode($clientConfig, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
-    <script type="module" src="<?= e(asset('js/app.js')) ?>"></script>
+    <script type="module" src="<?= e(versioned_asset('js/app.js')) ?>"></script>
 </body>
 </html>
