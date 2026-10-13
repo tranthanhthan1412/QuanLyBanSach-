@@ -68,11 +68,19 @@ Website chỉ mở kết nối dùng chung cho mỗi request; không tự tạo 
 - Ảnh sách lấy từ tài nguyên trong dự án; sách chưa có ảnh dùng ảnh thay thế.
 - Giỏ hàng lưu ID và số lượng trên trình duyệt; giới hạn theo tồn kho, tính giá và phí giao hàng. Chưa đồng bộ giỏ giữa tài khoản/thiết bị, chưa giữ chỗ tồn kho.
 - Đăng ký, đăng nhập bằng mật khẩu đã hash; biểu mẫu có CSRF token, session được đổi ID khi đăng nhập/đăng xuất. Đăng xuất dùng POST.
-- Trang tài khoản hiển thị dữ liệu người dùng đang đăng nhập. Danh sách và chi tiết đơn hàng chỉ đọc đơn của người dùng đó; dùng số tiền đã lưu trong chi tiết đơn.
+- Trang tài khoản cho phép sửa họ tên, số điện thoại và địa chỉ liên hệ; email đăng nhập giữ nguyên. Có trang đổi mật khẩu yêu cầu mật khẩu hiện tại và xác nhận mật khẩu mới. Danh sách và chi tiết đơn hàng chỉ đọc đơn của người dùng đó; dùng số tiền đã lưu trong chi tiết đơn.
 - Đặt hàng COD cần đăng nhập và JavaScript. Server lấy giá sách từ database, kiểm tra tồn kho và lưu đơn trong transaction. Giỏ chỉ xóa khi nhận được xác nhận thành công. Tồn kho được trừ khi admin xác nhận, hoàn lại khi hủy đơn đã trừ kho; đơn chờ chưa giữ chỗ tồn kho. Email gửi qua PHPMailer sau khi lưu đơn.
 - Form nhận bản tin vẫn là demo; email nhận bản tin không được gửi hoặc lưu.
 - Phân quyền `Admin` (quản trị viên) và `User` (khách hàng) ở phía server. Admin có trang tổng quan số đầu sách, tồn kho, khách hàng và đơn hàng; khách hàng truy cập trang này nhận HTTP 403.
-- Admin có thêm/sửa/xóa/ẩn sách, quản lý thể loại/tác giả/nhà xuất bản, khóa và phân quyền tài khoản, xử lý trạng thái đơn, nhật ký và tổng doanh thu. Chưa có chỉnh sửa hồ sơ khách hàng, thanh toán online hoặc báo cáo doanh thu theo kỳ.
+- Admin có thêm/sửa/xóa/ẩn sách, quản lý thể loại/tác giả/nhà xuất bản, khóa và phân quyền tài khoản, xử lý trạng thái đơn, nhật ký và tổng doanh thu. Chưa có thanh toán online hoặc báo cáo doanh thu theo kỳ.
+
+### Cài đặt tài khoản
+
+- Đăng nhập rồi mở **Tài khoản → Thông tin cá nhân** (`index.php?route=account`) để sửa họ tên (2–80 ký tự), số điện thoại và địa chỉ liên hệ (tối đa 255 ký tự). Điện thoại và địa chỉ có thể để trống; số điện thoại hỗ trợ dạng `0901234567` hoặc `+84901234567`. Địa chỉ này lưu trong hồ sơ, chưa tự điền vào form giao hàng có tỉnh/phường riêng.
+- Mở **Đổi mật khẩu** (`index.php?route=account-password`), nhập mật khẩu hiện tại, mật khẩu mới và xác nhận. Mật khẩu mới cần khác mật khẩu cũ, dài 8–72 byte; ký tự có dấu có thể chiếm nhiều byte. Mật khẩu luôn được hash và không điền lại vào form khi có lỗi.
+- Đổi mật khẩu thành công sẽ chuyển về đăng nhập. Các phiên trên thiết bị khác bị vô hiệu hóa ở request tiếp theo nhờ đối chiếu dấu vân tay của hash mật khẩu. Phiên tạo trước khi cập nhật chức năng này cũng cần đăng nhập lại một lần.
+- Cả `User` và `Admin` chỉ sửa hồ sơ/mật khẩu của chính mình. Server lấy ID từ phiên đăng nhập, không nhận email, vai trò hoặc ID tài khoản từ form để cập nhật. Các thao tác POST có kiểm tra CSRF.
+- Dùng các cột `tenND`, `SDT`, `diaChi`, `matKhau` đã có; không cần migration database mới. Chưa bao gồm quên mật khẩu qua email hoặc thay đổi email đăng nhập.
 
 Ví dụ URL: `index.php?route=products`, `index.php?route=product&id=1`, `index.php?route=cart`. ID sách thực tế tùy dữ liệu trong database; nên mở sách từ danh sách.
 
@@ -114,6 +122,8 @@ node tests\smoke.mjs
 ```
 
 Bộ test còn khởi tạo SMTP giả trên `127.0.0.1` để kiểm tra nội dung email, địa chỉ nhận từ tài khoản, lỗi SMTP không làm mất đơn, kiểm tra dữ liệu phía server và gửi lặp không tạo trùng. Test ghi đè cấu hình SMTP bằng môi trường riêng, không gửi email ra ngoài và không dùng mật khẩu mail cục bộ.
+
+`tests/account-settings.mjs` được chạy cùng bộ smoke test: kiểm tra lưu/xóa thông tin liên hệ, dữ liệu không hợp lệ, escape HTML, CSRF, giả mạo ID/email/vai trò, mật khẩu hiện tại sai, mật khẩu mới không hợp lệ, đăng nhập bằng mật khẩu mới và vô hiệu hóa phiên cũ. Tài khoản kiểm thử chỉ được tạo trong database test riêng.
 
 Kiểm tra thêm luồng đặt hàng bằng Chrome/Edge cài trên máy: đặt `$env:RUN_BROWSER_TEST = '1'` rồi chạy `node tests\smoke.mjs`. Có thể đặt `BROWSER_BIN` trỏ đến trình duyệt Chromium. Bài test dùng profile tạm và SMTP giả, kiểm tra gửi form trực tiếp được đưa về giao diện, giữ thông tin đã nhập, gửi giỏ bằng JavaScript, xóa giỏ sau thành công và tải đúng phiên bản các module. Website gắn mã phiên bản theo nội dung cho cả `app.js` và các module được import để tránh dùng JavaScript cũ sau khi cập nhật code.
 
