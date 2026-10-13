@@ -21,12 +21,16 @@ function current_user(): ?array
         return null;
     }
     $db = (new \Database())->getConnection();
-    $stmt = $db->prepare('SELECT nd.maND, nd.tenND, nd.email, nd.maVT, nd.biKhoa, vt.tenVT
+    $stmt = $db->prepare('SELECT nd.maND, nd.tenND, nd.email, nd.maVT, nd.biKhoa, nd.matKhau, vt.tenVT
         FROM nguoidung nd INNER JOIN vaitro vt ON nd.maVT = vt.maVT WHERE nd.maND = ? LIMIT 1');
     $stmt->execute([$id]);
     $row = $stmt->fetch();
-    if (!$row || (int) $row['biKhoa'] === 1 || !in_array($row['tenVT'], ['Admin', 'User'], true)) {
-        unset($_SESSION['user']);
+    // Password changes invalidate every session authenticated with the previous hash.
+    // Sessions created before this check was introduced must sign in again as well.
+    $fingerprint = $_SESSION['auth_password_fingerprint'] ?? '';
+    if (!$row || (int) $row['biKhoa'] === 1 || !in_array($row['tenVT'], ['Admin', 'User'], true)
+        || !is_string($fingerprint) || !hash_equals(hash('sha256', $row['matKhau']), $fingerprint)) {
+        unset($_SESSION['user'], $_SESSION['auth_password_fingerprint']);
         return null;
     }
     $user = [

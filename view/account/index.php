@@ -1,98 +1,42 @@
 <div class="container page-content">
-
-    <?php
-    $breadcrumbs = [
-        ['label' => 'Tài khoản']
-    ];
-
-    require ROOT_PATH . '/view/partials/breadcrumb.php';
-    ?>
-
-
+    <?php $breadcrumbs = [['label' => 'Tài khoản']]; require ROOT_PATH . '/view/partials/breadcrumb.php'; ?>
     <div class="page-heading">
-
         <h1>Tài khoản của bạn</h1>
-
-        <p>
-            Xin chào,
-            <strong><?= e($user['name'] ?? 'Khách') ?></strong>!
-        </p>
-
+        <p>Xin chào, <strong><?= e($user['name']) ?></strong>!</p>
     </div>
-
-
-
-
-
     <div class="account-grid">
-
         <?php require ROOT_PATH . '/view/partials/account-nav.php'; ?>
-
-
         <section class="panel account-main">
-
             <h2>Thông tin cá nhân</h2>
-
-            <p class="muted">
-                Thông tin tài khoản của bạn.
-            </p>
-
-
-            <dl class="profile-details">
-
-                <!-- HỌ VÀ TÊN -->
-                <div>
-
-                    <dt>Họ và tên</dt>
-
-                    <dd>
-                        <?= e($user['name'] ?? 'Chưa cập nhật') ?>
-                    </dd>
-
+            <p class="muted">Cập nhật thông tin liên hệ của bạn. Số điện thoại và địa chỉ không bắt buộc.</p>
+            <?php if ($error): ?><div class="notice notice-error" role="alert"><?= e($error) ?></div><?php endif; ?>
+            <?php if ($success): ?><div class="notice" role="status"><?= e($success) ?></div><?php endif; ?>
+            <form method="post" action="<?= e(url('account')) ?>">
+                <?= csrf_field() ?>
+                <div class="form-row">
+                    <div class="field">
+                        <label for="profile-name">Họ và tên <span>*</span></label>
+                        <input id="profile-name" name="name" type="text" required minlength="2" maxlength="80" autocomplete="name" value="<?= e($profile['name']) ?>">
+                    </div>
+                    <div class="field">
+                        <label for="profile-phone">Số điện thoại</label>
+                        <input id="profile-phone" name="phone" type="tel" maxlength="30" autocomplete="tel" placeholder="0901234567" value="<?= e($profile['phone']) ?>">
+                    </div>
                 </div>
-
-
-                <!-- EMAIL -->
-                <div>
-
-                    <dt>Email</dt>
-
-                    <dd>
-                        <?= e($user['email'] ?? 'Chưa cập nhật') ?>
-                    </dd>
-
+                <div class="field">
+                    <label for="profile-email">Email đăng nhập</label>
+                    <input id="profile-email" type="email" value="<?= e($user['email']) ?>" readonly aria-describedby="profile-email-help">
+                    <small id="profile-email-help" class="muted">Email đăng nhập hiện chưa hỗ trợ thay đổi.</small>
                 </div>
-
-
-                <!-- VAI TRÒ -->
-                <div>
-
-                    <dt>Vai trò</dt>
-
-                    <dd>
-                        <?= e(role_label($user['role'])) ?>
-                    </dd>
-
+                <div class="field">
+                    <label for="profile-address">Địa chỉ liên hệ</label>
+                    <textarea id="profile-address" name="address" rows="3" maxlength="255" autocomplete="street-address" placeholder="Số nhà, tên đường, phường/xã, tỉnh/thành phố"><?= e($profile['address']) ?></textarea>
                 </div>
-
-
-            </dl>
-
-
-            <div class="account-actions">
-
-                <a class="button button-outline" href="<?= e(url('orders')) ?>">
-                    Xem đơn hàng
-                    <?= icon('arrow') ?>
-                </a>
-
-
-                <form method="post" action="<?= e(url('logout')) ?>"><?= csrf_field() ?><button class="button" type="submit">Đăng xuất</button></form>
-
-            </div>
-
+                <div class="account-actions">
+                    <button class="button" type="submit">Lưu thay đổi</button>
+                    <a class="button button-outline" href="<?= e(url('account-password')) ?>">Đổi mật khẩu</a>
+                </div>
+            </form>
         </section>
-
     </div>
-
 </div>

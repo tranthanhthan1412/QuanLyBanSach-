@@ -487,6 +487,7 @@ dd { margin: 0; }
 .text-button { border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; padding: 0; }
 .logout-form { margin: 0; }
 .account-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.account-main #password-help { margin-bottom: 20px; }
 .status-red { color: #ad2929; background: #fff0f0; }
 .category-nav .logout-form button { min-height: 40px; padding: 8px 12px; text-align: left; }
 .order-card { border-bottom: 1px solid var(--color-border); padding-bottom: 24px; }

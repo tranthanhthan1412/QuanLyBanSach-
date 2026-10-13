@@ -25,6 +25,7 @@ final class AuthController extends Controller
                     && password_verify($password, $user['matKhau'])) {
                     session_regenerate_id(true);
                     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+                    $_SESSION['auth_password_fingerprint'] = hash('sha256', $user['matKhau']);
                     $_SESSION['user'] = [
                         'id' => (int) $user['maND'], 'name' => $user['tenND'], 'email' => $user['email'],
                         'role_id' => (int) $user['maVT'], 'role' => $user['tenVT'],

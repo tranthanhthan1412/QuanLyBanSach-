@@ -98,7 +98,30 @@ export async function browserCheckout(base, cookie) {
         for (const module of ['app.js', 'demo.js', 'cart-store.js']) {
             assert.ok(moduleRequests.some(url => url.includes(`/${module}?v=`)), `Expected versioned ${module}`);
         }
+        // Account forms use native POST and must work at desktop and mobile widths.
+        await call('Page.navigate', { url: `${base}/index.php?route=account` });
+        await waitFor('document.querySelector("#profile-name") !== null');
+        for (const width of [1280, 390]) {
+            await call('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: width < 600 });
+            assert.equal(await evaluate('document.documentElement.scrollWidth <= window.innerWidth'), true, `Account overflow at ${width}px`);
+        }
+        await evaluate('document.querySelector("#profile-phone").value = "0901234567"; document.querySelector("#profile-name").form.requestSubmit()');
+        await waitFor('document.querySelector("[role=status]")?.textContent.includes("Đã cập nhật thông tin cá nhân")');
+        assert.equal(await evaluate('document.querySelector("#profile-phone").value'), '0901234567');
+        await call('Page.navigate', { url: `${base}/index.php?route=account-password` });
+        await waitFor('document.querySelector("#account-current_password") !== null && document.querySelector("#toast-region") !== null');
+        // Wait for the module's event handlers to be installed before testing the toggle.
+        await evaluate(`import(document.querySelector('script[type=module]').src)`);
+        await evaluate('document.querySelector("[data-toggle-password=account-password]").click()');
+        assert.equal(await evaluate('document.querySelector("#account-password").type'), 'text');
+        await evaluate('document.querySelector("[data-toggle-password=account-password]").click()');
+        assert.equal(await evaluate('document.querySelector("#account-password").type'), 'password');
+        await evaluate(`Object.entries({current_password:'WrongPassword123!',password:'NewPassword456!',confirm:'NewPassword456!'}).forEach(([name,value]) => document.getElementById('account-' + name).value = value); document.querySelector('#account-password').form.requestSubmit()`);
+        await waitFor('document.querySelector("[role=alert]")?.textContent.includes("Mật khẩu hiện tại không chính xác")');
+        assert.equal(await evaluate('[...document.querySelectorAll("input[type=password]")].every(input => input.value === "")'), true);
+        assert.equal(await evaluate('document.documentElement.scrollWidth <= window.innerWidth'), true);
         assert.deepEqual(errors, []);
+        console.log('PASS: Browser account profile save, responsive forms, password toggle and validation.');
         console.log('PASS: Browser native-form recovery, preserved inputs, JS checkout, cart clearing, versioned modules and email confirmation.');
         await call('Browser.close');
     } finally {

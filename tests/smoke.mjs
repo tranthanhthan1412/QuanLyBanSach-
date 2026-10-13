@@ -8,6 +8,7 @@ import { mkdtempSync, readdirSync, unlinkSync, rmdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { smtpSink } from './smtp-server.mjs';
 import { browserCheckout } from './browser-checkout.mjs';
+import { accountSettings } from './account-settings.mjs';
 
 const cwd = fileURLToPath(new URL('../', import.meta.url));
 const php = process.env.PHP_BIN || (process.platform === 'win32' ? 'C:\\xampp\\php\\php.exe' : 'php');
@@ -375,6 +376,7 @@ try {
     assert.equal((await removed.request('route=login', 'POST', removedRegistration)).status, 303);
     sql("$db->exec(\"DELETE FROM nguoidung WHERE email = 'removed@example.test'\");");
     assert.equal((await removed.request('route=account')).status, 302);
+    await accountSettings({ base, Client, sql });
     assert.doesNotMatch(serverLog, /PHP (Warning|Fatal error|Deprecated)/);
     const unavailable = run(['-d', `session.save_path=${sessions}`], `<?php
         putenv('DB_NAME=${database}_missing');
@@ -384,7 +386,7 @@ try {
     `);
     assert.match(unavailable, /HTTP_STATUS=503/);
     assert.doesNotMatch(unavailable, /SQLSTATE|PDOException|Stack trace/);
-    console.log(`PASS: ${checks} HTTP checks; setup, catalog, auth, CSRF, roles, order ownership, checkout, SMTP success/failure, duplicate submission.`);
+    console.log(`PASS: ${checks} HTTP checks; setup, catalog, auth, account settings, CSRF, roles, order ownership, checkout, SMTP success/failure, duplicate submission.`);
 } finally {
     await smtp.close();
     if (server && server.exitCode === null) {
