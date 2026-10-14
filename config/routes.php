@@ -26,6 +26,7 @@ $router->get('account-password', [AccountController::class, 'password'], ['Admin
 $router->post('account-password', [AccountController::class, 'password'], ['Admin', 'User']);
 $router->get('orders', [AccountController::class, 'orders'], ['Admin', 'User']);
 $router->get('order', [AccountController::class, 'show'], ['Admin', 'User']);
+$router->post('order-cancel', [AccountController::class, 'cancel'], ['Admin', 'User']);
 $router->get('admin', [AdminController::class, 'index'], ['Admin']);
 $router->get('admin-products', [AdminController::class, 'products'], ['Admin']);
 $router->get('admin-product', [AdminController::class, 'productForm'], ['Admin']);
