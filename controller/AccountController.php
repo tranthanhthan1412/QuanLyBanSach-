@@ -139,10 +139,43 @@ final class AccountController extends Controller
             return;
         }
 
+        $flash = $_SESSION['order_cancel_flash'] ?? null;
+        unset($_SESSION['order_cancel_flash']);
+        $notice = is_array($flash) && ($flash['id'] ?? null) === $orderId ? $flash : null;
+
         $this->render('account/show', [
             'title' => 'Chi tiết đơn hàng',
             'user' => $user,
-            'order' => $order
+            'order' => $order,
+            'cancelNotice' => $notice,
         ]);
     }
+    /**
+     * Nhận yêu cầu POST hủy đơn (CSRF đã được Router kiểm tra).
+     */
+    public function cancel(): void
+    {
+        $user = $this->requireLogin();
+        $orderId = filter_var(
+            post_string('id'),
+            FILTER_VALIDATE_INT,
+            ['options' => ['min_range' => 1]]
+        );
+
+        if ($orderId === false) {
+            header('Location: ' . url('orders'), true, 303);
+            return;
+        }
+
+        try {
+            (new OrderModel())->cancelPending($orderId, (int) $user['id'], post_string('reason'));
+            $notice = ['id' => $orderId, 'success' => true, 'message' => 'Đã hủy đơn hàng thành công.'];
+        } catch (DomainException $exception) {
+            $notice = ['id' => $orderId, 'success' => false, 'message' => $exception->getMessage()];
+        }
+
+        $_SESSION['order_cancel_flash'] = $notice;
+        header('Location: ' . url('order', ['id' => $orderId]), true, 303);
+    }
+
 }

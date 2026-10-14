@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use PDO;
+use DomainException;
 
 final class OrderModel
 {
@@ -122,6 +123,65 @@ final class OrderModel
         return $order;
     }
 
+
+    /**
+     * Khách chỉ được hủy đơn của chính mình khi đang Chờ xác nhận.
+     * Khóa bản ghi để không đụng độ khi Admin đang xác nhận và trừ kho.
+     * Lý do hủy được lưu kèm ghi chú hiện có, không đổi schema MySQL.
+     */
+    public function cancelPending(int $orderId, int $userId, string $reason = ''): void
+    {
+        if ($orderId <= 0 || $userId <= 0) {
+            throw new DomainException('Mã đơn hàng không hợp lệ.');
+        }
+        $reason = trim($reason);
+        $length = static fn (string $text): int => function_exists('mb_strlen')
+            ? mb_strlen($text, 'UTF-8') : strlen($text);
+        if ($length($reason) > 180) {
+            throw new DomainException('Lý do hủy không được vượt quá 180 ký tự.');
+        }
+
+        $this->db->beginTransaction();
+        try {
+            $stmt = $this->db->prepare(
+                'SELECT trangThai, daTruKho, ghiChu
+                 FROM donhang WHERE maDH = ? AND maND = ? FOR UPDATE'
+            );
+            $stmt->execute([$orderId, $userId]);
+            $order = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$order || $order['trangThai'] !== 'ChoXacNhan' || (int) $order['daTruKho'] !== 0) {
+                throw new DomainException(
+                    'Không thể hủy đơn này. Đơn có thể đã được xác nhận, đã hủy hoặc không thuộc tài khoản của bạn.'
+                );
+            }
+
+            $note = trim((string) ($order['ghiChu'] ?? ''));
+            if ($reason !== '') {
+                $note .= ($note === '' ? '' : ' | ') . 'Lý do khách hủy: ' . $reason;
+                if ($length($note) > 500) {
+                    throw new DomainException('Ghi chú đơn hàng đã dài. Hãy rút ngắn hoặc bỏ trống lý do hủy.');
+                }
+            }
+
+            $update = $this->db->prepare(
+                "UPDATE donhang
+                 SET trangThai = 'DaHuy', ghiChu = ?
+                 WHERE maDH = ? AND maND = ?
+                   AND trangThai = 'ChoXacNhan' AND daTruKho = 0"
+            );
+            $update->execute([$note, $orderId, $userId]);
+            if ($update->rowCount() !== 1) {
+                throw new DomainException('Trạng thái đơn vừa thay đổi. Vui lòng tải lại trang.');
+            }
+            // Chưa được xác nhận nên chưa trừ tồn kho; không cộng kho khi hủy.
+            $this->db->commit();
+        } catch (\Throwable $error) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $error;
+        }
+    }
 
     /**
      * Lấy sách trong đơn hàng
