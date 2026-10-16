@@ -28,9 +28,20 @@
                     <input id="profile-email" type="email" value="<?= e($user['email']) ?>" readonly aria-describedby="profile-email-help">
                     <small id="profile-email-help" class="muted">Email đăng nhập hiện chưa hỗ trợ thay đổi.</small>
                 </div>
+                <div class="form-row">
+                    <div class="field">
+                        <label for="profile-province">Tỉnh / Thành phố</label>
+                        <input id="profile-province" name="province" type="text" minlength="2" maxlength="80" autocomplete="address-level1" placeholder="Nhập tỉnh hoặc thành phố" value="<?= e($profile['province'] ?? '') ?>">
+                    </div>
+                    <div class="field">
+                        <label for="profile-ward">Phường / Xã</label>
+                        <input id="profile-ward" name="ward" type="text" minlength="2" maxlength="80" autocomplete="address-level2" placeholder="Nhập phường hoặc xã" value="<?= e($profile['ward'] ?? '') ?>">
+                    </div>
+                </div>
                 <div class="field">
-                    <label for="profile-address">Địa chỉ liên hệ</label>
-                    <textarea id="profile-address" name="address" rows="3" maxlength="255" autocomplete="street-address" placeholder="Số nhà, tên đường, phường/xã, tỉnh/thành phố"><?= e($profile['address']) ?></textarea>
+                    <label for="profile-address">Địa chỉ cụ thể</label>
+                    <textarea id="profile-address" name="address" rows="3" maxlength="255" autocomplete="street-address" placeholder="Số nhà, tên đường…"><?= e($profile['address']) ?></textarea>
+                    <small class="muted">Địa chỉ đã lưu trước đây vẫn được giữ lại. Hãy bổ sung tỉnh/thành phố và phường/xã để tự điền khi đặt hàng.</small>
                 </div>
                 <div class="account-actions">
                     <button class="button" type="submit">Lưu thay đổi</button>

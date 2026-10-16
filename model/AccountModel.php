@@ -17,7 +17,7 @@ final class AccountModel
 
     public function profile(int $userId): array
     {
-        $stmt = $this->db->prepare('SELECT tenND AS name, SDT AS phone, diaChi AS address FROM nguoidung WHERE maND = ?');
+        $stmt = $this->db->prepare("SELECT tenND AS name, COALESCE(SDT, '') AS phone, COALESCE(diaChi, '') AS address, COALESCE(tinhThanhPho, '') AS province, COALESCE(phuongXa, '') AS ward FROM nguoidung WHERE maND = ?");
         $stmt->execute([$userId]);
         $profile = $stmt->fetch();
         if (!$profile) {
@@ -38,9 +38,23 @@ final class AccountModel
         if (mb_strlen($profile['address']) > 255) {
             throw new DomainException('Địa chỉ không được dài quá 255 ký tự.');
         }
+        $province = trim($profile['province'] ?? '');
+        $ward = trim($profile['ward'] ?? '');
+        foreach (['Tỉnh / Thành phố' => $province, 'Phường / Xã' => $ward] as $label => $value) {
+            if ($value !== '' && (mb_strlen($value) < 2 || mb_strlen($value) > 80)) {
+                throw new DomainException($label . ' cần từ 2 đến 80 ký tự.');
+            }
+        }
         // Only these fields can be changed; identity comes from the authenticated session.
-        $stmt = $this->db->prepare('UPDATE nguoidung SET tenND = ?, SDT = ?, diaChi = ? WHERE maND = ?');
-        $stmt->execute([$profile['name'], $phone !== '' ? $phone : null, $profile['address'] !== '' ? $profile['address'] : null, $userId]);
+        $stmt = $this->db->prepare('UPDATE nguoidung SET tenND = ?, SDT = ?, diaChi = ?, tinhThanhPho = ?, phuongXa = ? WHERE maND = ?');
+        $stmt->execute([
+            $profile['name'],
+            $phone !== '' ? $phone : null,
+            $profile['address'] !== '' ? $profile['address'] : null,
+            $province !== '' ? $province : null,
+            $ward !== '' ? $ward : null,
+            $userId,
+        ]);
     }
 
     public function changePassword(int $userId, string $current, string $password, string $confirm): void

@@ -41,6 +41,8 @@ final class AccountController extends Controller
                 'name' => post_string('name'),
                 'phone' => post_string('phone'),
                 'address' => post_string('address'),
+                'province' => post_string('province'),
+                'ward' => post_string('ward'),
             ];
             try {
                 $model->updateProfile((int) $user['id'], $profile);

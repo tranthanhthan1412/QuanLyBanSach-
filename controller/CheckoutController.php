@@ -6,6 +6,7 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Core\OrderMailer;
 use App\Models\CheckoutModel;
+use App\Models\AccountModel;
 use DomainException;
 
 final class CheckoutController extends Controller
@@ -16,7 +17,9 @@ final class CheckoutController extends Controller
         $error = $_SESSION['checkout_error'] ?? '';
         $old = $_SESSION['checkout_old'] ?? [];
         unset($_SESSION['checkout_error'], $_SESSION['checkout_old']);
-        $this->render('checkout/index', ['title' => 'Thông tin đặt hàng', 'user' => current_user(), 'error' => $error, 'old' => $old]);
+        $user = current_user();
+        $profile = $user ? (new AccountModel())->profile((int) $user['id']) : [];
+        $this->render('checkout/index', ['title' => 'Thông tin đặt hàng', 'user' => $user, 'profile' => $profile, 'error' => $error, 'old' => $old]);
     }
 
     public function store(): void
