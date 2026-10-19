@@ -2,7 +2,7 @@
 $route = query('route');
 $navigation = [
     ['admin', 'Tổng quan', 'chip', ''], ['admin-products', 'Sản phẩm', 'book', ''],
-    ['admin-orders', 'Đơn hàng', 'box', ''], ['admin-users', 'Tài khoản', 'users', ''],
+    ['admin-stock', 'Nhập kho', 'box', ''], ['admin-orders', 'Đơn hàng', 'box', ''], ['admin-users', 'Tài khoản', 'users', ''],
     ['admin-catalog', 'Thể loại', 'menu', 'categories'], ['admin-catalog', 'Tác giả', 'user', 'authors'],
     ['admin-catalog', 'Nhà xuất bản', 'briefcase', 'publishers'], ['admin-logs', 'Nhật ký', 'clock', ''],
 ];
@@ -24,7 +24,7 @@ $navigation = [
         <div class="admin-nav-label">QUẢN LÝ CỬA HÀNG</div>
         <nav class="admin-nav" aria-label="Quản trị">
             <?php foreach ($navigation as [$target, $label, $symbol, $catalogKind]):
-                $active = $catalogKind ? $route === $target && query('kind', 'categories') === $catalogKind : ($route === $target || ($target === 'admin-products' && $route === 'admin-product') || ($target === 'admin-orders' && $route === 'admin-order'));
+                $active = $catalogKind ? $route === $target && query('kind', 'categories') === $catalogKind : ($route === $target || ($target === 'admin-products' && $route === 'admin-product') || ($target === 'admin-orders' && $route === 'admin-order') || ($target === 'admin-stock' && in_array($route, ['admin-stock-create', 'admin-stock-detail'], true)));
             ?>
             <a href="<?= e(url($target, $catalogKind ? ['kind' => $catalogKind] : [])) ?>" <?= $active ? 'aria-current="page"' : '' ?>><?= icon($symbol) ?><span><?= e($label) ?></span></a>
             <?php endforeach; ?>
@@ -34,7 +34,7 @@ $navigation = [
     <div class="admin-workspace">
         <header class="admin-topbar"><div><span class="admin-top-label">BookStore</span><span class="admin-divider">/</span><span><?= e($title) ?></span></div><div class="admin-top-actions"><span class="admin-avatar"><?= e(mb_strtoupper(mb_substr($user['name'], 0, 1))) ?></span><div><strong><?= e($user['name']) ?></strong><small>Quản trị viên</small></div><form method="post" action="<?= e(url('logout')) ?>"><?= csrf_field() ?><button class="admin-logout" type="submit">Đăng xuất</button></form></div></header>
         <main id="admin-main" class="admin-content">
-            <div class="admin-heading"><div><div class="admin-eyebrow">QUẢN TRỊ / <?= e(mb_strtoupper($title)) ?></div><h1><?= e($title) ?></h1></div><a class="button" href="<?= e(url('admin-product')) ?>"><span aria-hidden="true">＋</span> Thêm sách mới</a></div>
+            <div class="admin-heading"><div><div class="admin-eyebrow">QUẢN TRỊ / <?= e(mb_strtoupper($title)) ?></div><h1><?= e($title) ?></h1></div><?php if ($route === 'admin-stock'): ?><a class="button" href="<?= e(url('admin-stock-create')) ?>"><span aria-hidden="true">＋</span> Lập phiếu nhập</a><?php elseif (in_array($route, ['admin-stock-create', 'admin-stock-detail'], true)): ?><a class="button button-outline" href="<?= e(url('admin-stock')) ?>">Danh sách phiếu nhập</a><?php else: ?><a class="button" href="<?= e(url('admin-product')) ?>"><span aria-hidden="true">＋</span> Thêm sách mới</a><?php endif; ?></div>
             <?php if ($flash): ?><div class="admin-alert <?= $flash['type'] === 'error' ? 'is-error' : '' ?>" role="<?= $flash['type'] === 'error' ? 'alert' : 'status' ?>"><?= e($flash['message']) ?></div><?php endif; ?>
             <?php require ROOT_PATH . '/view/admin/' . $view . '.php'; ?>
         </main>

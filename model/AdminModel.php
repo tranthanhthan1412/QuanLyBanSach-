@@ -318,6 +318,10 @@ final class AdminModel
                     'Sách đã có trong đơn hàng, không thể xóa. Hãy sửa sách và chọn Ẩn khỏi cửa hàng.'
                 );
             }
+            // Lịch sử phiếu nhập phải được giữ để đối chiếu kho và giá vốn.
+            if ($this->query('SELECT 1 FROM chitietphieunhap WHERE maSach = ? LIMIT 1', [$id])->fetchColumn()) {
+                throw new DomainException('Sách đã có trong phiếu nhập kho, không thể xóa. Hãy chọn Ẩn khỏi cửa hàng.');
+            }
 
             $this->query(
                 'DELETE FROM sach WHERE maSach = ?',

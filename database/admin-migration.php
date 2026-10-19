@@ -59,4 +59,39 @@ function migrate_admin(PDO $db): void
             UNIQUE (tenNXB)
         ");
     }
+
+    // Ghi nhận phiếu nhập đã xác nhận. Không suy diễn lịch sử từ tồn kho cũ.
+    // Dùng requestToken UNIQUE để chống tạo phiếu 2 lần khi gửi lại yêu cầu.
+    $db->exec('CREATE TABLE IF NOT EXISTS phieunhap (
+        maPN BIGINT AUTO_INCREMENT PRIMARY KEY,
+        maND INT NOT NULL,
+        ngayNhap DATE NOT NULL,
+        ngayTao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        nhaCungCap VARCHAR(150) NULL,
+        ghiChu VARCHAR(500) NULL,
+        tongTienNhap DECIMAL(18,2) NOT NULL DEFAULT 0,
+        trangThai VARCHAR(20) NOT NULL DEFAULT \'DaNhap\',
+        requestToken CHAR(64) NOT NULL UNIQUE,
+        INDEX idx_phieunhap_ngay (ngayNhap, maPN),
+        CONSTRAINT FK_PhieuNhap_NguoiDung FOREIGN KEY (maND)
+            REFERENCES nguoidung(maND) ON UPDATE CASCADE ON DELETE RESTRICT,
+        CONSTRAINT CK_PhieuNhap_TongTien CHECK (tongTienNhap >= 0)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+
+    $db->exec('CREATE TABLE IF NOT EXISTS chitietphieunhap (
+        maPN BIGINT NOT NULL,
+        maSach INT NOT NULL,
+        tenSachLucNhap VARCHAR(255) NOT NULL,
+        soLuong INT NOT NULL,
+        donGiaNhap DECIMAL(12,2) NOT NULL,
+        thanhTien DECIMAL(18,2) NOT NULL,
+        PRIMARY KEY (maPN, maSach),
+        CONSTRAINT FK_ChiTietPhieuNhap_PhieuNhap FOREIGN KEY (maPN)
+            REFERENCES phieunhap(maPN) ON UPDATE CASCADE ON DELETE RESTRICT,
+        CONSTRAINT FK_ChiTietPhieuNhap_Sach FOREIGN KEY (maSach)
+            REFERENCES sach(maSach) ON UPDATE CASCADE ON DELETE RESTRICT,
+        CONSTRAINT CK_ChiTietPhieuNhap_SoLuong CHECK (soLuong > 0),
+        CONSTRAINT CK_ChiTietPhieuNhap_Gia CHECK (donGiaNhap >= 0),
+        CONSTRAINT CK_ChiTietPhieuNhap_ThanhTien CHECK (thanhTien >= 0)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
 }

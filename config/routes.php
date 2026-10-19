@@ -35,6 +35,10 @@ $router->post('admin-product-delete', [AdminController::class, 'deleteProduct'],
 $router->get('admin-catalog', [AdminController::class, 'catalog'], ['Admin']);
 $router->post('admin-catalog', [AdminController::class, 'catalog'], ['Admin']);
 $router->post('admin-catalog-delete', [AdminController::class, 'deleteCatalog'], ['Admin']);
+$router->get('admin-stock', [AdminController::class, 'stock'], ['Admin']);
+$router->get('admin-stock-create', [AdminController::class, 'stockCreate'], ['Admin']);
+$router->post('admin-stock-create', [AdminController::class, 'stockCreate'], ['Admin']);
+$router->get('admin-stock-detail', [AdminController::class, 'stockDetail'], ['Admin']);
 $router->get('admin-orders', [AdminController::class, 'orders'], ['Admin']);
 $router->get('admin-order', [AdminController::class, 'order'], ['Admin']);
 $router->post('admin-order', [AdminController::class, 'order'], ['Admin']);

@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Core\Controller;
 use App\Models\AdminModel;
+use App\Models\WarehouseModel;
 use DomainException;
 
 final class AdminController extends Controller
@@ -142,6 +143,84 @@ final class AdminController extends Controller
     {
         try { $kind = $this->kind(); } catch (DomainException) { $this->notFound(); return; }
         $this->mutation(fn () => $this->model()->deleteCatalog($kind, (int) post_string('id'), current_user()['id']), 'admin-catalog', 'Đã xóa danh mục.', ['kind' => $kind]);
+    }
+
+    /** Danh sách phiếu nhập kho. */
+    public function stock(): void
+    {
+        $this->page('stock', 'Quản lý nhập kho', [
+            'listing' => (new WarehouseModel())->receipts((int) query('page', '1')),
+        ]);
+    }
+
+    /** Lập phiếu nhập; POST tạo phiếu + cộng tồn kho nguyên tử. */
+    public function stockCreate(): void
+    {
+        $model = new WarehouseModel();
+        $_SESSION['stock_entry_token'] ??= bin2hex(random_bytes(32));
+        $token = $_SESSION['stock_entry_token'];
+        $error = '';
+        $form = [
+            'date' => date('Y-m-d'), 'supplier' => '', 'note' => '',
+            'items' => array_fill(0, 3, ['book_id' => '', 'quantity' => '', 'unit_price' => '']),
+        ];
+
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            $form['date'] = post_string('date');
+            $form['supplier'] = post_string('supplier');
+            $form['note'] = post_string('note');
+            $ids = $_POST['book_id'] ?? [];
+            $quantities = $_POST['quantity'] ?? [];
+            $prices = $_POST['unit_price'] ?? [];
+            try {
+                $submittedToken = post_string('entry_token');
+                if (!preg_match('/^[a-f0-9]{64}$/D', $submittedToken)) {
+                    throw new DomainException('Phiên nhập kho không hợp lệ. Hãy tải lại trang.');
+                }
+                // Retry sau khi nhận phản hồi lỗi mạng: không nhập kho lần thứ hai.
+                if (!hash_equals($token, $submittedToken)) {
+                    $previous = $model->byToken($submittedToken);
+                    if ($previous !== null) {
+                        $this->redirect('admin-stock-detail', 'Phiếu nhập đã được ghi nhận trước đó.', 'success', ['id' => $previous]);
+                    }
+                    throw new DomainException('Phiên nhập kho đã hết hạn. Hãy tải lại trang.');
+                }
+                if (!is_array($ids) || !is_array($quantities) || !is_array($prices)) {
+                    throw new DomainException('Danh sách sách nhập không hợp lệ.');
+                }
+                $count = max(count($ids), count($quantities), count($prices));
+                if ($count > 20) {
+                    throw new DomainException('Một phiếu nhập tối đa 20 đầu sách.');
+                }
+                $form['items'] = [];
+                for ($i = 0; $i < $count; $i++) {
+                    $form['items'][] = [
+                        'book_id' => is_scalar($ids[$i] ?? null) ? trim((string) $ids[$i]) : '',
+                        'quantity' => is_scalar($quantities[$i] ?? null) ? trim((string) $quantities[$i]) : '',
+                        'unit_price' => is_scalar($prices[$i] ?? null) ? trim((string) $prices[$i]) : '',
+                    ];
+                }
+                $id = $model->create($form, $submittedToken, (int) current_user()['id']);
+                unset($_SESSION['stock_entry_token']);
+                $this->redirect('admin-stock-detail', 'Đã lập phiếu nhập và cộng tồn kho.', 'success', ['id' => $id]);
+            } catch (DomainException $exception) {
+                $error = $exception->getMessage();
+                http_response_code(422);
+            }
+        }
+
+        $this->page('stock-form', 'Lập phiếu nhập kho', [
+            'books' => $model->books(), 'form' => $form, 'error' => $error, 'token' => $token,
+        ]);
+    }
+
+    /** Chi tiết phiếu đã xác nhận: chỉ đọc, không cho sửa/xóa chứng từ. */
+    public function stockDetail(): void
+    {
+        $id = (int) query('id', '0');
+        $receipt = $id > 0 ? (new WarehouseModel())->receipt($id) : null;
+        if (!$receipt) { $this->notFound(); return; }
+        $this->page('stock-detail', 'Phiếu nhập #' . $id, ['receipt' => $receipt]);
     }
 
     public function orders(): void
