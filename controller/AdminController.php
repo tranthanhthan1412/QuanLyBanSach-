@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Core\Controller;
 use App\Models\AdminModel;
+use App\Models\RevenueReportModel;
 use App\Models\WarehouseModel;
 use DomainException;
 
@@ -42,6 +43,39 @@ final class AdminController extends Controller
             'lowStock' => $model->lowStock(),
         ]);
     }
+	
+	// Hiển thị báo cáo bán hàng theo khoảng thời gian
+	public function reports(): void
+	{
+	    $today = new \DateTimeImmutable(
+	        'now',
+	        new \DateTimeZone('Asia/Ho_Chi_Minh')
+	    );
+
+	    $from = query('from', $today->format('Y-m-01'));
+	    $to = query('to', $today->format('Y-m-d'));
+
+	    $summary = null;
+	    $bestSellers = [];
+	    $error = '';
+
+	    try {
+	        $report = new RevenueReportModel();
+
+	        $summary = $report->summary($from, $to);
+	        $bestSellers = $report->bestSellers($from, $to);
+	    } catch (DomainException $exception) {
+	        $error = $exception->getMessage();
+	    }
+
+	    $this->page('reports', 'Báo cáo theo khoảng thời gian', [
+	        'from' => $from,
+	        'to' => $to,
+	        'summary' => $summary,
+	        'bestSellers' => $bestSellers,
+	        'error' => $error,
+	    ]);
+	}
 
     public function products(): void
     {
