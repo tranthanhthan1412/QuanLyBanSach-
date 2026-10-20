@@ -611,14 +611,14 @@ final class AdminModel
         string $status,
         string $note,
         int $actor
-    ): void {
-        $this->transaction(function () use (
+    ): int {
+        return $this->transaction(function () use (
             $id,
             $expected,
             $status,
             $note,
             $actor
-        ): void {
+        ): int {
             $order = $this->query(
                 'SELECT *
                  FROM donhang
@@ -729,6 +729,29 @@ final class AdminModel
                 $status .
                 ($note !== '' ? '; ' . $note : '')
             );
+
+            // Ghi thông báo trong cùng transaction với việc đổi trạng thái.
+            // Nếu transaction rollback, không có email nào được xếp hàng.
+            $recipient = $this->query(
+                "SELECT COALESCE(NULLIF(dh.emailNguoiNhan, ''), nd.email) AS emailNhan,
+                        COALESCE(NULLIF(dh.tenNguoiNhan, ''), nd.tenND) AS tenNguoiNhan
+                 FROM donhang dh JOIN nguoidung nd ON nd.maND = dh.maND
+                 WHERE dh.maDH = ?",
+                [$id]
+            )->fetch();
+            if (!$recipient) {
+                throw new DomainException('Không thể xác định người nhận thông báo.');
+            }
+            $this->query(
+                'INSERT INTO thongbaotrangthaidon
+                    (maDH, trangThaiCu, trangThaiMoi, lyDo, emailNhan, tenNguoiNhan)
+                 VALUES (?, ?, ?, ?, ?, ?)',
+                [
+                    $id, $order['trangThai'], $status, $note,
+                    $recipient['emailNhan'] ?? '', $recipient['tenNguoiNhan'] ?? ''
+                ]
+            );
+            return (int) $this->db->lastInsertId();
         });
     }
 

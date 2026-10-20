@@ -1,6 +1,6 @@
 const config = JSON.parse(document.getElementById('app-data').textContent);
 // PHP provides content-versioned URLs for the full module graph, not just app.js.
-const [{ createCart, calculateTotals, CART_KEY }, { initDemoForms, showFormResult }] = await Promise.all([
+const [{ createCart, calculateTotals, normalizeItems, CART_KEY }, { initDemoForms, showFormResult }] = await Promise.all([
     import(config.modules.cart),
     import(config.modules.forms),
 ]);
@@ -19,9 +19,141 @@ function notify(message) {
     toastTimer = setTimeout(() => region.replaceChildren(), 5000);
 }
 
-// Lazy wrappers also catch browsers that throw when the storage property is read.
-const storage = { getItem: key => window.localStorage.getItem(key), setItem: (key, value) => window.localStorage.setItem(key, value) };
-const cart = createCart(config.products, storage, message => setTimeout(() => notify(message), 0));
+// Khách chưa đăng nhập tiếp tục dùng localStorage; giỏ tài khoản chỉ sống trên server.
+const storage = {
+    getItem: key => window.localStorage.getItem(key),
+    setItem: (key, value) => window.localStorage.setItem(key, value),
+    removeItem: key => window.localStorage.removeItem(key),
+};
+const warnCart = message => setTimeout(() => notify(message), 0);
+const syncEndpoint = new URL('index.php?route=cart-sync', window.location.href).href;
+const transferKey = 'bookstore_cart_guest_transfer_v1';
+
+async function requestCart(values = null) {
+    const response = await fetch(syncEndpoint, {
+        method: values ? 'POST' : 'GET',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        keepalive: !!values,
+        headers: { Accept: 'application/json', ...(values ? { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' } : {}) },
+        ...(values ? { body: new URLSearchParams(values) } : {}),
+    });
+    if (!response.headers.get('content-type')?.includes('application/json')) {
+        throw new Error('Phiên đăng nhập hoặc kết nối đã thay đổi. Vui lòng tải lại trang.');
+    }
+    const result = await response.json();
+    if (!response.ok || result.ok === false) {
+        throw new Error(result.message || 'Không thể đồng bộ giỏ. Vui lòng thử lại.');
+    }
+    return result;
+}
+
+function createRemoteCart(saved, csrf, userId) {
+    // Không bao giờ ghi giỏ của tài khoản vào khóa localStorage dùng chung.
+    const memoryStorage = { getItem: () => JSON.stringify(saved), setItem: () => {} };
+    const inner = createCart(config.products, memoryStorage, warnCart);
+    let confirmed = saved;
+    let pending = 0;
+    let failure = null;
+    let tail = Promise.resolve();
+
+    function enqueue(operation) {
+        if (pending === 0) failure = null;
+        pending++;
+        tail = tail.then(async () => {
+            const result = await requestCart({ ...operation, csrf_token: csrf });
+            confirmed = result.items;
+        }).catch(error => {
+            failure = error;
+            warnCart('Chưa lưu được giỏ trên tài khoản: ' + error.message);
+        }).finally(() => {
+            pending--;
+            if (pending === 0) inner.replace(confirmed); // Nếu lỗi: trở lại trạng thái server.
+        });
+    }
+
+    return {
+        getItems: inner.getItems,
+        subscribe: inner.subscribe,
+        add(id, qty = 1) {
+            const result = inner.add(id, qty);
+            if (result.ok) {
+                enqueue({ action: 'set', id: String(id), qty: String(inner.getItems().find(item => item.id === id).qty) });
+            }
+            return result;
+        },
+        update(id, qty) {
+            inner.update(id, qty);
+            const line = inner.getItems().find(item => item.id === id);
+            if (line) enqueue({ action: 'set', id: String(id), qty: String(line.qty) });
+        },
+        remove(id) { inner.remove(id); enqueue({ action: 'set', id: String(id), qty: '0' }); },
+        clear() { inner.clear(); enqueue({ action: 'clear' }); },
+        // Đơn hàng đã xoá giỏ MySQL trên server; tránh gửi yêu cầu xoá trễ lúc điều hướng.
+        clearLocal() { confirmed = []; inner.replace([]); },
+        async waitForSync() {
+            await tail;
+            if (failure) throw new Error('Giỏ hàng chưa đồng bộ xong. Vui lòng tải lại trang trước khi đặt hàng.');
+        },
+        async refresh() {
+            await tail;
+            if (pending) return;
+            const result = await requestCart();
+            if (!result.authenticated || result.userId !== userId) {
+                window.location.reload(); // Ngăn hiển thị giỏ sai tài khoản sau đổi phiên.
+                return;
+            }
+            if (pending) return; // Không đè lên thay đổi vừa bắt đầu khi GET đang chạy.
+            failure = null;
+            confirmed = result.items;
+            inner.replace(result.items);
+        },
+    };
+}
+
+async function initializeCart() {
+    let session;
+    try {
+        session = await requestCart();
+    } catch (error) {
+        warnCart('Không kiểm tra được giỏ trên máy chủ: ' + error.message);
+        return { cart: createCart(config.products, storage, warnCart), remote: false };
+    }
+    if (!session.authenticated) {
+        return { cart: createCart(config.products, storage, warnCart), remote: false };
+    }
+
+    let saved = session.items;
+    let guest = [];
+    try {
+        guest = normalizeItems(JSON.parse(storage.getItem(CART_KEY) || '[]'), config.products);
+    } catch {
+        warnCart('Giỏ khách trên trình duyệt không đọc được.');
+    }
+    if (guest.length) {
+        try {
+            // Giữ mã chuyển giỏ khi request mất phản hồi; server sẽ chỉ cộng đúng một lần.
+            const payload = JSON.stringify(guest);
+            let transfer;
+            try { transfer = JSON.parse(storage.getItem(transferKey) || 'null'); } catch { /* dữ liệu cũ */ }
+            if (!transfer || transfer.payload !== payload || !/^[a-f0-9]{32}$/.test(transfer.id)) {
+                const random = crypto.getRandomValues(new Uint8Array(16));
+                transfer = { id: Array.from(random, n => n.toString(16).padStart(2, '0')).join(''), payload };
+                storage.setItem(transferKey, JSON.stringify(transfer));
+            }
+            saved = (await requestCart({
+                action: 'merge', transfer_id: transfer.id, items: payload, csrf_token: session.csrf,
+            })).items;
+            storage.removeItem(CART_KEY);
+            storage.removeItem(transferKey);
+        } catch (error) {
+            warnCart('Chưa gộp được giỏ khách. Giỏ cũ vẫn được giữ trên trình duyệt để thử lại: ' + error.message);
+        }
+    }
+    return { cart: createRemoteCart(saved, session.csrf, session.userId), remote: true };
+}
+
+const { cart, remote: hasRemoteCart } = await initializeCart();
 
 const menu = document.getElementById('category-nav');
 const menuToggle = document.getElementById('menu-toggle');
@@ -151,12 +283,15 @@ initDemoForms({
     async checkout(form) {
         if (submitting) return;
 
-        const items = cart.getItems();
-        if (!items.length) { renderCheckout(); notify('Giỏ hàng đang trống. Vui lòng chọn sách trước.'); return; }
+        if (!cart.getItems().length) { renderCheckout(); notify('Giỏ hàng đang trống. Vui lòng chọn sách trước.'); return; }
         submitting = true;
         renderCheckout();
         form.setAttribute('aria-busy', 'true');
         try {
+            // Chờ lưu giỏ MySQL xong trước khi gửi yêu cầu tạo đơn.
+            if (cart.waitForSync) await cart.waitForSync();
+            const items = cart.getItems();
+            if (!items.length) throw new Error('Giỏ hàng đã thay đổi. Vui lòng kiểm tra lại trước khi đặt.');
             const data = new FormData(form);
             data.set('items', JSON.stringify(items));
             const response = await fetch(form.action, {
@@ -170,7 +305,7 @@ initDemoForms({
             }
             const result = await response.json();
             if (!response.ok || !result.ok) throw new Error(result.message || 'Không thể đặt hàng. Vui lòng thử lại.');
-            cart.clear();
+            if (cart.clearLocal) cart.clearLocal(); else cart.clear();
             window.location.assign(result.url);
         } catch (error) {
             showFormResult(form, error instanceof TypeError
@@ -194,7 +329,14 @@ function render() {
     renderCheckout();
 }
 cart.subscribe(render);
-window.addEventListener('storage', event => { if (event.key === CART_KEY || event.key === null) cart.reload(); });
-// A page restored from browser history must reread the cart, including after checkout.
-window.addEventListener('pageshow', event => { if (event.persisted) cart.reload(); });
+if (!hasRemoteCart) {
+    window.addEventListener('storage', event => { if (event.key === CART_KEY || event.key === null) cart.reload(); });
+}
+// Đổi tab/thiết bị: luôn đọc dữ liệu mới nhất của tài khoản khi quay lại trang.
+function resumeCart() {
+    if (hasRemoteCart) cart.refresh().catch(error => warnCart('Không tải được giỏ mới nhất: ' + error.message));
+    else cart.reload();
+}
+window.addEventListener('pageshow', event => { if (event.persisted) resumeCart(); });
+window.addEventListener('focus', () => { if (hasRemoteCart) resumeCart(); });
 render();

@@ -1,5 +1,4 @@
-// Only product IDs and quantities are persisted. Replace this adapter with an
-// authenticated backend cart when the project enters its backend phase.
+// Giỏ khách chỉ lưu ID/số lượng; giỏ đăng nhập được đồng bộ qua API trong app.js.
 export const CART_KEY = 'bookstore_cart_v1';
 
 export function normalizeItems(value, products) {
@@ -68,6 +67,8 @@ export function createCart(products, storage, onWarning = () => {}) {
         },
         remove(id) { items = items.filter(item => item.id !== id); persist(); },
         clear() { items = []; persist(); },
+        // Hydrate từ server mà không phát sinh thao tác ghi ngược lên API.
+        replace(nextItems) { items = normalizeItems(nextItems, products); persist(); },
         reload() { load(); for (const listener of listeners) listener(); },
     };
 }

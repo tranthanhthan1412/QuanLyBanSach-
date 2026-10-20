@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Core\Controller;
 use App\Models\AdminModel;
+use App\Models\OrderStatusNotificationModel;
 use App\Models\RevenueReportModel;
 use App\Models\WarehouseModel;
 use DomainException;
@@ -265,17 +266,60 @@ final class AdminController extends Controller
     public function order(): void
     {
         $id = (int) query('id', '0');
-        $order = $this->model()->order($id);
+        $model = $this->model();
+        $order = $model->order($id);
         if (!$order) { $this->notFound(); return; }
+        $notifications = new OrderStatusNotificationModel();
+
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
-            $this->mutation(function () use ($id): void {
+            try {
+                if (post_string('notification_action') === 'retry') {
+                    // Reuse the existing protected Admin-only POST route /admin-order.
+                    $notificationId = (int) post_string('notification_id');
+                    $result = $notifications->deliver($notificationId, $id);
+                    $messages = [
+                        'sent' => 'Email thông báo đã được gửi hoặc đã gửi trước đó.',
+                        'failed' => 'Chưa gửi được email. Trạng thái đơn hàng không bị ảnh hưởng.',
+                        'disabled' => 'Email đang bị tắt trong cấu hình SMTP.',
+                        'sending' => 'Thông báo đang xử lý hoặc chưa xác định kết quả. Kiểm tra trước khi thử gửi lại.',
+                        'not_allowed' => 'Không thể gửi lại thông báo này.',
+                    ];
+                    $this->redirect('admin-order', $messages[$result] ?? 'Đã xử lý thông báo.',
+                        $result === 'sent' ? 'success' : 'error', ['id' => $id]);
+                }
+
                 $note = post_string('note');
                 if (mb_strlen($note) > 500) { throw new DomainException('Ghi chú tối đa 500 ký tự.'); }
-                if (post_string('status') === 'DaHuy' && $note === '') { throw new DomainException('Vui lòng nhập lý do hủy đơn.'); }
-                $this->model()->updateOrder($id, post_string('expected'), post_string('status'), $note, current_user()['id']);
-            }, 'admin-order', 'Đã cập nhật trạng thái đơn hàng.', ['id' => $id]);
+                if (post_string('status') === 'DaHuy' && $note === '') {
+                    throw new DomainException('Vui lòng nhập lý do hủy đơn.');
+                }
+                // Changing the order and recording the event commit atomically.
+                $notificationId = $model->updateOrder(
+                    $id, post_string('expected'), post_string('status'), $note, current_user()['id']
+                );
+            } catch (DomainException $error) {
+                $this->redirect('admin-order', $error->getMessage(), 'error', ['id' => $id]);
+            }
+
+            // Do not mail inside the order transaction. Failed SMTP never rolls back status.
+            try {
+                $result = $notifications->deliver($notificationId, $id);
+            } catch (\Throwable $error) {
+                error_log('Post-commit status email error for order #' . $id . ' (' . get_class($error) . ').');
+                $result = 'failed';
+            }
+            $message = match ($result) {
+                'sent' => 'Đã cập nhật đơn hàng và gửi email thông báo.',
+                'disabled' => 'Đã cập nhật đơn hàng. Email đang bị tắt; có thể gửi lại khi bật SMTP.',
+                default => 'Đã cập nhật đơn hàng. Chưa gửi được email, hãy kiểm tra lịch sử thông báo để thử lại.',
+            };
+            $this->redirect('admin-order', $message, $result === 'sent' ? 'success' : 'error', ['id' => $id]);
         }
-        $this->page('order', 'Đơn hàng #' . $id, ['order' => $order]);
+
+        $this->page('order', 'Đơn hàng #' . $id, [
+            'order' => $order,
+            'statusNotifications' => $notifications->forOrder($id),
+        ]);
     }
 
     public function users(): void

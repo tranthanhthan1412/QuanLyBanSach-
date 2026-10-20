@@ -6,6 +6,7 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Core\OrderMailer;
 use App\Models\CheckoutModel;
+use App\Models\CartModel;
 use App\Models\AccountModel;
 use DomainException;
 
@@ -63,6 +64,8 @@ final class CheckoutController extends Controller
                 $items = json_decode($raw, true);
                 if (!is_array($items)) { throw new DomainException('Dữ liệu giỏ hàng không hợp lệ.'); }
                 $order = $model->create($user, $data, $items, $token);
+                // Lưu đơn xong: xoá giỏ đã đồng bộ trong MySQL.
+                (new CartModel())->clear((int) $user['id']);
                 unset($_SESSION['checkout_token']);
                 // The order remains saved even when SMTP is unavailable.
                 $mailStatus = (new OrderMailer())->send($order);
