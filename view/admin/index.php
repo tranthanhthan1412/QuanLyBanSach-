@@ -1,9 +1,27 @@
 <p class="admin-intro">Chào <?= e($user['name']) ?>, cùng theo dõi hoạt động và chăm sóc cửa hàng hôm nay.</p>
 <div class="admin-stats">
-    <?php foreach ([['Doanh thu đơn đã giao', money($stats['revenue']), 'briefcase', 'Tổng tiền sách · toàn thời gian'], ['Đơn hàng', $stats['orders'], 'box', $stats['pending'] . ' đơn đang chờ xác nhận'], ['Đầu sách', $stats['books'], 'book', $stats['stock'] . ' cuốn trong kho đang bán'], ['Khách hàng', $stats['customers'], 'users', 'Tài khoản khách hàng đã đăng ký']] as [$label, $value, $symbol, $hint]): ?>
+    <?php foreach ([
+        ['Doanh thu đơn đã giao', money($stats['revenue']), 'briefcase', 'Tổng tiền sách · toàn thời gian'],
+        ['Đã thu đối soát COD', money($stats['cod_collected'] ?? 0), 'shield', ($stats['cod_pending_count'] ?? 0) . ' đơn đã giao chờ đối soát'],
+        ['Đơn hàng', $stats['orders'], 'box', $stats['pending'] . ' đơn đang chờ xác nhận'],
+        ['Đầu sách', $stats['books'], 'book', $stats['stock'] . ' cuốn trong kho đang bán'],
+        ['Khách hàng', $stats['customers'], 'users', 'Tài khoản khách hàng đã đăng ký']
+    ] as [$label, $value, $symbol, $hint]): ?>
     <article class="admin-stat"><div class="admin-stat-top"><span><?= e($label) ?></span><span class="admin-stat-icon"><?= icon($symbol) ?></span></div><strong><?= e($value) ?></strong><small><?= e($hint) ?></small></article>
     <?php endforeach; ?>
 </div>
+
+<?php if (($stats['return_pending_count'] ?? 0) > 0): ?>
+<div class="admin-priority" style="border-left: 4px solid #ad2929; margin-bottom: 16px;">
+    <div class="admin-priority-icon" style="background: #fff0f0; color: #ad2929;"><?= icon('shield') ?></div>
+    <div>
+        <h2><?= e($stats['return_pending_count']) ?> yêu cầu đổi trả cần xử lý</h2>
+        <p>Khách hàng đã gửi yêu cầu đổi sách hoặc trả hàng hoàn tiền cho đơn đã giao.</p>
+    </div>
+    <a class="button button-outline" href="<?= e(url('admin-orders', ['return_status' => 'ChoXuLy'])) ?>">Xử lý đổi trả <?= icon('arrow') ?></a>
+</div>
+<?php endif; ?>
+
 <div class="admin-priority"><div class="admin-priority-icon"><?= icon('clock') ?></div><div><h2><?= e($stats['pending']) ?> đơn hàng cần xác nhận</h2><p>Kiểm tra đơn hàng và tồn kho trước khi chuyển sang giao hàng.</p></div><a class="button button-outline" href="<?= e(url('admin-orders', ['status' => 'ChoXacNhan'])) ?>">Xử lý đơn hàng <?= icon('arrow') ?></a></div>
 <div class="admin-dashboard-grid">
     <section class="admin-panel"><div class="admin-panel-heading"><div><h2>Đơn hàng gần đây</h2><p>Các đơn mới nhất trong cửa hàng</p></div><a class="admin-link" href="<?= e(url('admin-orders')) ?>">Xem tất cả →</a></div><?php $rows = array_slice($recent, 0, 6); require ROOT_PATH . '/view/admin/orders-table.php'; ?></section>

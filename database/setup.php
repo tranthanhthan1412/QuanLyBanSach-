@@ -20,7 +20,6 @@ try {
         }
     }
 
-    // Additive upgrade for databases created by the previous commit.
     if (!$db->query("SHOW COLUMNS FROM sach LIKE 'hinhAnh'")->fetch()) {
         $db->exec('ALTER TABLE sach ADD COLUMN hinhAnh VARCHAR(255) NULL');
     }
@@ -29,13 +28,14 @@ try {
     migrate_admin($db);
     require_once __DIR__ . '/checkout-migration.php';
     migrate_checkout($db);
+    require_once __DIR__ . '/cod-reconciliation-migration.php';
+    migrate_cod_reconciliation($db);
     $db->beginTransaction();
     $role = $db->prepare('INSERT INTO vaitro (tenVT, moTa) SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM vaitro WHERE tenVT = ?)');
     foreach (['Admin' => 'Quản trị viên', 'User' => 'Khách hàng'] as $name => $description) {
         $role->execute([$name, $description, $name]);
     }
 
-    // Seed only a new, empty catalog. Never overwrite existing user data.
     $empty = true;
     foreach (['sach', 'theloai', 'tacgia', 'nhaxuatban'] as $table) {
         if ((int) $db->query('SELECT COUNT(*) FROM ' . $table)->fetchColumn() > 0) {

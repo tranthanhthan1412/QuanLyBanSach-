@@ -146,7 +146,15 @@ final class AdminController extends Controller
 
     public function orders(): void
     {
-        $this->page('orders', 'Đơn hàng', ['listing' => $this->model()->orders(query('q'), query('status'), (int) query('page', '1'))]);
+        $this->page('orders', 'Đơn hàng', [
+            'listing' => $this->model()->orders(
+                query('q'),
+                query('status'),
+                (int) query('page', '1'),
+                query('cod_status'),
+                query('return_status')
+            )
+        ]);
     }
 
     public function order(): void
@@ -163,6 +171,29 @@ final class AdminController extends Controller
             }, 'admin-order', 'Đã cập nhật trạng thái đơn hàng.', ['id' => $id]);
         }
         $this->page('order', 'Đơn hàng #' . $id, ['order' => $order]);
+    }
+
+    public function updateCod(): void
+    {
+        $id = (int) post_string('id');
+        $this->mutation(function () use ($id): void {
+            $status = post_string('cod_status');
+            $note = post_string('cod_note');
+            $this->model()->updateCodStatus($id, $status, $note, current_user()['id']);
+        }, 'admin-order', 'Đã cập nhật trạng thái đối soát COD.', ['id' => $id]);
+    }
+
+    public function processReturn(): void
+    {
+        $id = (int) post_string('order_id');
+        $requestId = (int) post_string('request_id');
+        $this->mutation(function () use ($requestId): void {
+            $status = post_string('return_status');
+            $response = post_string('admin_response');
+            $restock = post_string('restock') === '1';
+            $refundAmount = post_string('refund_amount') !== '' ? (float) post_string('refund_amount') : null;
+            $this->model()->processReturnRequest($requestId, $status, $response, $restock, $refundAmount, current_user()['id']);
+        }, 'admin-order', 'Đã cập nhật xử lý yêu cầu đổi trả.', ['id' => $id]);
     }
 
     public function users(): void

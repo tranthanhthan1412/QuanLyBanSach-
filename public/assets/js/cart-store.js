@@ -1,5 +1,3 @@
-// Only product IDs and quantities are persisted. Replace this adapter with an
-// authenticated backend cart when the project enters its backend phase.
 export const CART_KEY = 'bookstore_cart_v1';
 
 export function normalizeItems(value, products) {

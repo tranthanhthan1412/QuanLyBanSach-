@@ -1,7 +1,6 @@
 <?php
 declare(strict_types=1);
 
-// Keep credentials in mail.local.php (ignored by Git), or environment variables.
 $settings = [
     'enabled' => false,
     'host' => 'smtp.gmail.com',

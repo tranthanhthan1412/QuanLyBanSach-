@@ -26,6 +26,7 @@ $router->get('account-password', [AccountController::class, 'password'], ['Admin
 $router->post('account-password', [AccountController::class, 'password'], ['Admin', 'User']);
 $router->get('orders', [AccountController::class, 'orders'], ['Admin', 'User']);
 $router->get('order', [AccountController::class, 'show'], ['Admin', 'User']);
+$router->post('order-return', [AccountController::class, 'requestReturn'], ['Admin', 'User']);
 $router->get('admin', [AdminController::class, 'index'], ['Admin']);
 $router->get('admin-products', [AdminController::class, 'products'], ['Admin']);
 $router->get('admin-product', [AdminController::class, 'productForm'], ['Admin']);
@@ -37,6 +38,9 @@ $router->post('admin-catalog-delete', [AdminController::class, 'deleteCatalog'],
 $router->get('admin-orders', [AdminController::class, 'orders'], ['Admin']);
 $router->get('admin-order', [AdminController::class, 'order'], ['Admin']);
 $router->post('admin-order', [AdminController::class, 'order'], ['Admin']);
+$router->post('admin-order-cod', [AdminController::class, 'updateCod'], ['Admin']);
+$router->post('admin-order-return', [AdminController::class, 'processReturn'], ['Admin']);
 $router->get('admin-users', [AdminController::class, 'users'], ['Admin']);
 $router->post('admin-users', [AdminController::class, 'users'], ['Admin']);
 $router->get('admin-logs', [AdminController::class, 'logs'], ['Admin']);
+

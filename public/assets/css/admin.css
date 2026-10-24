@@ -339,6 +339,7 @@
 .admin-badge.amber { background: #fff5df; color: #946000; }
 .admin-badge.red { background: #fff0f0; color: #a82b38; }
 .admin-badge.blue { background: #edf3ff; color: #365b9b; }
+.admin-badge.purple { background: #f3e8ff; color: #6b21a8; }
 .admin-badge.neutral { background: #f0f1f4; color: #646673; }
 .admin-pagination {
     display: flex;

@@ -1,7 +1,6 @@
 <?php
 declare(strict_types=1);
 
-// Environment variables override the defaults for local XAMPP.
 return [
     'host' => getenv('DB_HOST') ?: '127.0.0.1',
     'port' => getenv('DB_PORT') ?: '3306',

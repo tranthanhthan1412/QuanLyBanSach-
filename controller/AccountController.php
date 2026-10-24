@@ -139,10 +139,39 @@ final class AccountController extends Controller
             return;
         }
 
+        $flashSuccess = $_SESSION['order_success'] ?? '';
+        $flashError = $_SESSION['order_error'] ?? '';
+        unset($_SESSION['order_success'], $_SESSION['order_error']);
+
         $this->render('account/show', [
             'title' => 'Chi tiết đơn hàng',
             'user' => $user,
-            'order' => $order
+            'order' => $order,
+            'flashSuccess' => $flashSuccess,
+            'flashError' => $flashError,
         ]);
+    }
+
+    public function requestReturn(): void
+    {
+        $user = $this->requireLogin();
+        $orderId = (int) post_string('order_id');
+        if ($orderId <= 0) {
+            header('Location: ' . url('orders'));
+            exit;
+        }
+
+        try {
+            $type = post_string('type');
+            $reason = post_string('reason');
+            $detail = post_string('detail');
+            (new CheckoutModel())->createReturnRequest($orderId, (int) $user['id'], $type, $reason, $detail);
+            $_SESSION['order_success'] = 'Đã gửi yêu cầu đổi trả / hoàn tiền. Cửa hàng sẽ sớm xem xét và phản hồi.';
+        } catch (DomainException $exception) {
+            $_SESSION['order_error'] = $exception->getMessage();
+        }
+
+        header('Location: ' . url('order', ['id' => $orderId]), true, 303);
+        exit;
     }
 }

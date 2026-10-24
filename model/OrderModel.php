@@ -32,7 +32,15 @@ final class OrderModel
 				COALESCE(SUM(ctdh.tongTien), 0)
 				+ COALESCE(MAX(dh.phiVanChuyen), 0) AS tongTien,
 
-                COUNT(ctdh.maSach) AS soLoaiSach
+                COUNT(ctdh.maSach) AS soLoaiSach,
+                MAX(dh.trangThaiCOD) AS trangThaiCOD,
+                (
+                    SELECT yc.trangThai
+                    FROM yeucaudoitra yc
+                    WHERE yc.maDH = dh.maDH
+                    ORDER BY yc.maYC DESC
+                    LIMIT 1
+                ) AS trangThaiDoiTra
 
             FROM donhang dh
 

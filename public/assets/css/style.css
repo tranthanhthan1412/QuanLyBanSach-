@@ -129,7 +129,7 @@ p { color: var(--color-muted); }
 del { color: var(--color-muted); font-size: 12px; font-weight: 350; }
 .add-to-cart { width: 100%; margin-top: auto; min-height: 34px; padding: 7px 10px; font-size: 13px; }
 .site-footer { background: var(--color-soft); border-top: 1px solid var(--color-border); padding-top: 48px; }
-.footer-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 32px; padding-bottom: 32px; }
+.footer-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; padding-bottom: 32px; }
 .footer-grid h2 { font-size: 15px; font-weight: 550; margin-bottom: 20px; letter-spacing: 0; }
 .footer-grid h3 { font-size: 13px; margin-top: 18px; margin-bottom: 7px; }
 .footer-grid p { font-size: 13px; font-weight: 350; line-height: 1.6; margin-bottom: 14px; }
@@ -140,8 +140,6 @@ del { color: var(--color-muted); font-size: 12px; font-weight: 350; }
 .footer-note { display: flex; align-items: center; gap: 10px; margin-top: 20px; font-size: 12px; }
 .icon-line { display: flex; gap: 10px; align-items: flex-start; }
 .icon-line .icon { width: 16px; height: 16px; margin-top: 2px; }
-.newsletter { display: grid; gap: 7px; margin-bottom: 14px; }
-.newsletter input { background: var(--color-input); border: 1px solid transparent; padding: 9px 12px; width: 100%; border-radius: 8px; font-size: 13px; }
 .footer-grid small { font-size: 11px; color: var(--color-muted); }
 .footer-bottom { border-top: 1px solid var(--color-border); padding-block: 32px 42px; display: flex; justify-content: space-between; gap: 20px; color: var(--color-muted); font-size: 12px; }
 .payment-note { display: flex; align-items: center; gap: 16px; }
@@ -279,6 +277,8 @@ dd { margin: 0; }
 .status-amber { color: #975c13; background: #fff7e5; }
 .status-blue { color: #1b5fbb; background: #edf4ff; }
 .status-green { color: #207343; background: #eaf9ef; }
+.status-purple { color: #6b21a8; background: #f3e8ff; }
+.status-neutral { color: #555770; background: #f0f1f4; }
 .order-item { display: flex; align-items: center; gap: 16px; padding-block: 18px; border-bottom: 1px solid var(--color-border); }
 .order-item img { object-fit: cover; border-radius: 5px; }
 .order-item > div { flex: 1; min-width: 0; font-weight: 550; }
@@ -483,7 +483,6 @@ dd { margin: 0; }
     *, *::before, *::after { transition: none !important; animation: none !important; }
 }
 
-/* Account forms share the navigation typography. */
 .text-button { border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; padding: 0; }
 .logout-form { margin: 0; }
 .account-actions { display: flex; gap: 12px; flex-wrap: wrap; }

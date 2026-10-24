@@ -1,6 +1,5 @@
 const config = JSON.parse(document.getElementById('app-data').textContent);
-// PHP provides content-versioned URLs for the full module graph, not just app.js.
-const [{ createCart, calculateTotals, CART_KEY }, { initDemoForms, showFormResult }] = await Promise.all([
+const [{ createCart, calculateTotals, CART_KEY }, { initForms, showFormResult }] = await Promise.all([
     import(config.modules.cart),
     import(config.modules.forms),
 ]);
@@ -19,7 +18,6 @@ function notify(message) {
     toastTimer = setTimeout(() => region.replaceChildren(), 5000);
 }
 
-// Lazy wrappers also catch browsers that throw when the storage property is read.
 const storage = { getItem: key => window.localStorage.getItem(key), setItem: (key, value) => window.localStorage.setItem(key, value) };
 const cart = createCart(config.products, storage, message => setTimeout(() => notify(message), 0));
 
@@ -146,8 +144,7 @@ function renderCheckout() {
 }
 
 let submitting = false;
-initDemoForms({
-    notify,
+initForms({
     async checkout(form) {
         if (submitting) return;
 
@@ -195,6 +192,5 @@ function render() {
 }
 cart.subscribe(render);
 window.addEventListener('storage', event => { if (event.key === CART_KEY || event.key === null) cart.reload(); });
-// A page restored from browser history must reread the cart, including after checkout.
 window.addEventListener('pageshow', event => { if (event.persisted) cart.reload(); });
 render();

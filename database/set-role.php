@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-// Role assignment is deliberately limited to the server's CLI.
+
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);
     exit;
