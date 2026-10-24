@@ -6,7 +6,6 @@ function e(mixed $value): string
     return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
-/** Resolve identity and role from the database once per request, never from form input. */
 function current_user(): ?array
 {
     static $loaded = false;
@@ -25,8 +24,6 @@ function current_user(): ?array
         FROM nguoidung nd INNER JOIN vaitro vt ON nd.maVT = vt.maVT WHERE nd.maND = ? LIMIT 1');
     $stmt->execute([$id]);
     $row = $stmt->fetch();
-    // Password changes invalidate every session authenticated with the previous hash.
-    // Sessions created before this check was introduced must sign in again as well.
     $fingerprint = $_SESSION['auth_password_fingerprint'] ?? '';
     if (!$row || (int) $row['biKhoa'] === 1 || !in_array($row['tenVT'], ['Admin', 'User'], true)
         || !is_string($fingerprint) || !hash_equals(hash('sha256', $row['matKhau']), $fingerprint)) {
@@ -79,11 +76,9 @@ function url(string $route = 'home', array $query = []): string
 
 function asset(string $path): string
 {
-    $directory = defined('PUBLIC_ENTRY') && PUBLIC_ENTRY ? '/assets/' : '/public/assets/';
-    return base_url() . $directory . ltrim($path, '/');
+    return base_url() . '/public/assets/' . ltrim($path, '/');
 }
 
-/** A changed script must get a new URL, including imported ES modules. */
 function versioned_asset(string $path): string
 {
     $version = substr(hash_file('sha256', ROOT_PATH . '/public/assets/' . ltrim($path, '/')), 0, 16);
@@ -118,7 +113,6 @@ function csrf_valid(): bool
 
 function book_image(?string $path): string
 {
-    // Only packaged images may be used; arbitrary paths and URLs are rejected.
     if (!$path || !preg_match('~^images/[a-zA-Z0-9_-]+\.(jpg|jpeg|png|webp|svg)$~D', $path)
         || !is_file(ROOT_PATH . '/public/assets/' . $path)) {
         return 'images/book-placeholder.svg';
@@ -135,6 +129,46 @@ function order_status(string $status): array
         'DaGiao', 'HoanThanh', 'Đã giao', 'Hoàn thành' => ['Đã giao', 'green'],
         'DaHuy', 'Đã hủy', 'Hủy' => ['Đã hủy', 'red'],
         default => [$status, 'amber'],
+    };
+}
+
+function cod_status(?string $status): array
+{
+    return match ($status) {
+        'DaThu' => ['Đã thu tiền COD', 'green'],
+        'HoanTien' => ['Đã hoàn tiền', 'purple'],
+        default => ['Chưa đối soát COD', 'amber'],
+    };
+}
+
+function return_status(?string $status): array
+{
+    return match ($status) {
+        'ChoXuLy' => ['Chờ xử lý đổi trả', 'amber'],
+        'ChapNhan' => ['Chấp nhận đổi trả', 'blue'],
+        'TuChoi' => ['Từ chối đổi trả', 'red'],
+        'DaHoanTien' => ['Đã hoàn tất', 'green'],
+        default => [$status ?: 'Không có yêu cầu', 'neutral'],
+    };
+}
+
+function return_type_label(?string $type): string
+{
+    return match ($type) {
+        'HoanTien' => 'Trả hàng & hoàn tiền',
+        'DoiHang' => 'Đổi sách khác',
+        default => (string) $type,
+    };
+}
+
+function return_reason_label(?string $reason): string
+{
+    return match ($reason) {
+        'SachLoi' => 'Sách lỗi in ấn / rách trang',
+        'GiaoSai' => 'Giao sai tựa sách',
+        'HuHong' => 'Hư hỏng do vận chuyển',
+        'Khac' => 'Lý do khác',
+        default => (string) $reason,
     };
 }
 

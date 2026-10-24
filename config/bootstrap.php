@@ -39,5 +39,4 @@ spl_autoload_register(function (string $class): void {
 
 require ROOT_PATH . '/libs/helpers.php';
 
-// Connections are shared and opened lazily. Schema setup is CLI-only.
 require_once ROOT_PATH . '/model/database.php';

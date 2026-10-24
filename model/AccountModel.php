@@ -45,7 +45,6 @@ final class AccountModel
                 throw new DomainException($label . ' cần từ 2 đến 80 ký tự.');
             }
         }
-        // Only these fields can be changed; identity comes from the authenticated session.
         $stmt = $this->db->prepare('UPDATE nguoidung SET tenND = ?, SDT = ?, diaChi = ?, tinhThanhPho = ?, phuongXa = ? WHERE maND = ?');
         $stmt->execute([
             $profile['name'],
@@ -77,7 +76,6 @@ final class AccountModel
         if (password_verify($password, $hash)) {
             throw new DomainException('Mật khẩu mới phải khác mật khẩu hiện tại.');
         }
-        // Compare-and-swap prevents a concurrent password change from being overwritten.
         $stmt = $this->db->prepare('UPDATE nguoidung SET matKhau = ? WHERE maND = ? AND matKhau = ?');
         $stmt->execute([password_hash($password, PASSWORD_DEFAULT), $userId, $hash]);
         if ($stmt->rowCount() !== 1) {

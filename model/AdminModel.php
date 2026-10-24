@@ -23,6 +23,31 @@ final class AdminModel
         'DaHuy' => 'Đã hủy'
     ];
 
+    public const COD_STATUSES = [
+        'ChuaThu' => 'Chưa đối soát thu COD',
+        'DaThu' => 'Đã thu tiền COD',
+        'HoanTien' => 'Đã hoàn tiền'
+    ];
+
+    public const RETURN_STATUSES = [
+        'ChoXuLy' => 'Chờ xử lý',
+        'ChapNhan' => 'Chấp nhận đổi trả',
+        'TuChoi' => 'Từ chối',
+        'DaHoanTien' => 'Đã hoàn tất'
+    ];
+
+    public const RETURN_TYPES = [
+        'HoanTien' => 'Trả hàng & hoàn tiền',
+        'DoiHang' => 'Đổi sách khác'
+    ];
+
+    public const RETURN_REASONS = [
+        'SachLoi' => 'Sách lỗi in ấn / rách trang',
+        'GiaoSai' => 'Giao sai tựa sách',
+        'HuHong' => 'Hư hỏng do vận chuyển',
+        'Khac' => 'Lý do khác'
+    ];
+
     private PDO $db;
 
     public function __construct()
@@ -126,7 +151,24 @@ final class AdminModel
                         'Đã giao',
                         'Hoàn thành'
                     )
-                ) AS revenue
+                ) AS revenue,
+                (
+                    SELECT COALESCE(SUM(ct.tongTien), 0) + COALESCE(SUM(dh.phiVanChuyen), 0)
+                    FROM donhang dh
+                    JOIN chitietdonhang ct ON ct.maDH = dh.maDH
+                    WHERE dh.trangThaiCOD = 'DaThu'
+                ) AS cod_collected,
+                (
+                    SELECT COUNT(*)
+                    FROM donhang dh
+                    WHERE dh.trangThai IN ('DaGiao', 'HoanThanh', 'Đã giao', 'Hoàn thành')
+                      AND (dh.trangThaiCOD = 'ChuaThu' OR dh.trangThaiCOD IS NULL)
+                ) AS cod_pending_count,
+                (
+                    SELECT COUNT(*)
+                    FROM yeucaudoitra
+                    WHERE trangThai = 'ChoXuLy'
+                ) AS return_pending_count
         ")->fetch();
     }
 
@@ -533,7 +575,9 @@ final class AdminModel
     public function orders(
         string $search,
         string $status,
-        int $page
+        int $page,
+        string $codStatus = '',
+        string $returnStatus = ''
     ): array {
         $where = 'WHERE (
             CAST(dh.maDH AS CHAR) LIKE ?
@@ -578,6 +622,18 @@ final class AdminModel
             $params = [...$params, ...$aliases];
         }
 
+        if (isset(self::COD_STATUSES[$codStatus])) {
+            $where .= ' AND dh.trangThaiCOD = ?';
+            $params[] = $codStatus;
+        }
+
+        if ($returnStatus === 'yes') {
+            $where .= ' AND EXISTS (SELECT 1 FROM yeucaudoitra yc WHERE yc.maDH = dh.maDH)';
+        } elseif (isset(self::RETURN_STATUSES[$returnStatus])) {
+            $where .= ' AND EXISTS (SELECT 1 FROM yeucaudoitra yc WHERE yc.maDH = dh.maDH AND yc.trangThai = ?)';
+            $params[] = $returnStatus;
+        }
+
         return $this->paginate(
             "FROM donhang dh
              JOIN nguoidung nd ON nd.maND = dh.maND
@@ -589,7 +645,21 @@ final class AdminModel
                  SELECT COALESCE(SUM(tongTien), 0)
                  FROM chitietdonhang
                  WHERE maDH = dh.maDH
-             ) AS total",
+             ) AS total,
+             (
+                 SELECT yc.trangThai
+                 FROM yeucaudoitra yc
+                 WHERE yc.maDH = dh.maDH
+                 ORDER BY yc.maYC DESC
+                 LIMIT 1
+             ) AS trangThaiDoiTra,
+             (
+                 SELECT yc.loaiYeuCau
+                 FROM yeucaudoitra yc
+                 WHERE yc.maDH = dh.maDH
+                 ORDER BY yc.maYC DESC
+                 LIMIT 1
+             ) AS loaiYeuCauDoiTra",
             $params,
             'dh.maDH DESC',
             $page
@@ -602,6 +672,8 @@ final class AdminModel
         if (!$order) { return null; }
         $order['items'] = $this->query('SELECT ct.*, COALESCE(ct.tenSachLucMua, s.tenSach) AS tenSach, s.tonKho FROM chitietdonhang ct JOIN sach s ON s.maSach = ct.maSach WHERE ct.maDH = ? ORDER BY ct.maSach', [$id])->fetchAll();
         $order['total'] = array_sum(array_column($order['items'], 'tongTien'));
+        $order['reconciler'] = !empty($order['nguoiDoiSoatCOD']) ? $this->query('SELECT tenND, email FROM nguoidung WHERE maND = ?', [$order['nguoiDoiSoatCOD']])->fetch() : null;
+        $order['return_requests'] = $this->query('SELECT yc.*, nd.tenND FROM yeucaudoitra yc JOIN nguoidung nd ON nd.maND = yc.maND WHERE yc.maDH = ? ORDER BY yc.maYC DESC', [$id])->fetchAll();
         return $order;
     }
 
@@ -813,7 +885,6 @@ final class AdminModel
             $blocked,
             $actor
         ): void {
-            // Serialize role changes to preserve at least one active admin.
             $roles = $this->query(
                 'SELECT *
                  FROM vaitro
@@ -895,5 +966,91 @@ final class AdminModel
             'n.id DESC',
             $page
         );
+    }
+
+    public function updateCodStatus(int $orderId, string $status, string $note, int $actorId): void
+    {
+        if (!isset(self::COD_STATUSES[$status])) {
+            throw new DomainException('Trạng thái đối soát COD không hợp lệ.');
+        }
+        if (mb_strlen($note) > 500) {
+            throw new DomainException('Ghi chú đối soát tối đa 500 ký tự.');
+        }
+        $this->transaction(function () use ($orderId, $status, $note, $actorId): void {
+            $order = $this->query('SELECT maDH, trangThai, trangThaiCOD FROM donhang WHERE maDH = ? FOR UPDATE', [$orderId])->fetch();
+            if (!$order) {
+                throw new DomainException('Không tìm thấy đơn hàng.');
+            }
+            $prev = $order['trangThaiCOD'] ?? 'ChuaThu';
+            $now = (new \DateTimeImmutable('now', new \DateTimeZone('Asia/Ho_Chi_Minh')))->format('Y-m-d H:i:s');
+            $this->query(
+                'UPDATE donhang SET trangThaiCOD = ?, ngayDoiSoatCOD = ?, ghiChuCOD = ?, nguoiDoiSoatCOD = ? WHERE maDH = ?',
+                [$status, $now, $note !== '' ? $note : null, $actorId, $orderId]
+            );
+            $this->audit(
+                $actorId,
+                'Đối soát COD',
+                'Đơn #' . $orderId,
+                (self::COD_STATUSES[$prev] ?? $prev) . ' → ' . (self::COD_STATUSES[$status] ?? $status) . ($note !== '' ? '; ' . $note : '')
+            );
+        });
+    }
+
+    public function processReturnRequest(int $requestId, string $status, string $adminResponse, bool $restock, ?float $refundAmount, int $actorId): void
+    {
+        if (!isset(self::RETURN_STATUSES[$status]) || $status === 'ChoXuLy') {
+            throw new DomainException('Trạng thái xử lý đổi trả không hợp lệ.');
+        }
+        if (mb_strlen($adminResponse) > 1000) {
+            throw new DomainException('Phản hồi đổi trả tối đa 1000 ký tự.');
+        }
+        $this->transaction(function () use ($requestId, $status, $adminResponse, $restock, $refundAmount, $actorId): void {
+            $request = $this->query('SELECT * FROM yeucaudoitra WHERE maYC = ? FOR UPDATE', [$requestId])->fetch();
+            if (!$request) {
+                throw new DomainException('Không tìm thấy yêu cầu đổi trả.');
+            }
+            $orderId = (int) $request['maDH'];
+            $order = $this->query('SELECT * FROM donhang WHERE maDH = ? FOR UPDATE', [$orderId])->fetch();
+            if (!$order) {
+                throw new DomainException('Không tìm thấy đơn hàng liên kết.');
+            }
+            $now = (new \DateTimeImmutable('now', new \DateTimeZone('Asia/Ho_Chi_Minh')))->format('Y-m-d H:i:s');
+            $amount = $refundAmount !== null ? max(0, $refundAmount) : (float) $request['soTienHoan'];
+            $alreadyRestocked = (int) $request['hoanKho'] === 1;
+
+            if ($status === 'DaHoanTien') {
+                if ($restock && !$alreadyRestocked) {
+                    $items = $this->query('SELECT maSach, soLuong FROM chitietdonhang WHERE maDH = ?', [$orderId])->fetchAll();
+                    foreach ($items as $item) {
+                        $this->query(
+                            'UPDATE sach SET tonKho = tonKho + ?, phienBan = phienBan + 1 WHERE maSach = ?',
+                            [$item['soLuong'], $item['maSach']]
+                        );
+                    }
+                }
+                $this->query(
+                    'UPDATE yeucaudoitra SET trangThai = ?, phanHoiAdmin = ?, soTienHoan = ?, hoanKho = ?, ngayXuLy = ? WHERE maYC = ?',
+                    [$status, $adminResponse !== '' ? $adminResponse : null, $amount, ($restock || $alreadyRestocked) ? 1 : 0, $now, $requestId]
+                );
+                $this->query(
+                    "UPDATE donhang SET trangThaiCOD = 'HoanTien' WHERE maDH = ?",
+                    [$orderId]
+                );
+            } else {
+                $this->query(
+                    'UPDATE yeucaudoitra SET trangThai = ?, phanHoiAdmin = ?, ngayXuLy = ? WHERE maYC = ?',
+                    [$status, $adminResponse !== '' ? $adminResponse : null, $now, $requestId]
+                );
+            }
+
+            $this->audit(
+                $actorId,
+                'Xử lý đổi trả',
+                'Đơn #' . $orderId . ' (Yêu cầu #' . $requestId . ')',
+                (self::RETURN_STATUSES[$request['trangThai']] ?? $request['trangThai']) . ' → ' . (self::RETURN_STATUSES[$status] ?? $status) .
+                ($adminResponse !== '' ? '; ' . $adminResponse : '') .
+                ($restock ? '; Đã hoàn kho sách' : '')
+            );
+        });
     }
 }

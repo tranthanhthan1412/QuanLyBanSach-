@@ -25,8 +25,7 @@ final class CheckoutController extends Controller
 
     public function store(): void
     {
-        // A stale/missing JS handler submits a native form without cart data.
-        // Return to the form instead of displaying the JSON endpoint as a page.
+       
         if (!str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json')) {
             $_SESSION['checkout_error'] = 'Chưa gửi được giỏ hàng. Vui lòng kiểm tra lại thông tin và bấm Đặt hàng.';
             $_SESSION['checkout_old'] = [];
@@ -42,7 +41,7 @@ final class CheckoutController extends Controller
         try {
             $token = post_string('checkout_token');
             if (!preg_match('/^[a-f0-9]{64}$/D', $token)) { throw new DomainException('Phiên đặt hàng không hợp lệ. Vui lòng tải lại trang.'); }
-            // A retried request returns the same order and never sends a second email.
+          
             $order = $model->byToken($token, $user['id']);
             if (!$order) {
                 if (!hash_equals($_SESSION['checkout_token'] ?? '', $token)) {
@@ -67,7 +66,7 @@ final class CheckoutController extends Controller
                 // Lưu đơn xong: xoá giỏ đã đồng bộ trong MySQL.
                 (new CartModel())->clear((int) $user['id']);
                 unset($_SESSION['checkout_token']);
-                // The order remains saved even when SMTP is unavailable.
+               
                 $mailStatus = (new OrderMailer())->send($order);
                 $model->recordMailStatus((int) $order['maDH'], $mailStatus);
             }

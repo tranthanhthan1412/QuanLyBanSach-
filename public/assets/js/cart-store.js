@@ -1,4 +1,3 @@
-// Giỏ khách chỉ lưu ID/số lượng; giỏ đăng nhập được đồng bộ qua API trong app.js.
 export const CART_KEY = 'bookstore_cart_v1';
 
 export function normalizeItems(value, products) {

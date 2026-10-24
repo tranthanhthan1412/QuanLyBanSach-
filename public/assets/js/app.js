@@ -1,6 +1,5 @@
 const config = JSON.parse(document.getElementById('app-data').textContent);
-// PHP provides content-versioned URLs for the full module graph, not just app.js.
-const [{ createCart, calculateTotals, normalizeItems, CART_KEY }, { initDemoForms, showFormResult }] = await Promise.all([
+const [{ createCart, calculateTotals, normalizeItems, CART_KEY }, { initForms, showFormResult }] = await Promise.all([
     import(config.modules.cart),
     import(config.modules.forms),
 ]);
@@ -155,6 +154,7 @@ async function initializeCart() {
 
 const { cart, remote: hasRemoteCart } = await initializeCart();
 
+
 const menu = document.getElementById('category-nav');
 const menuToggle = document.getElementById('menu-toggle');
 function closeMenu() {
@@ -278,8 +278,7 @@ function renderCheckout() {
 }
 
 let submitting = false;
-initDemoForms({
-    notify,
+initForms({
     async checkout(form) {
         if (submitting) return;
 
@@ -332,7 +331,6 @@ cart.subscribe(render);
 if (!hasRemoteCart) {
     window.addEventListener('storage', event => { if (event.key === CART_KEY || event.key === null) cart.reload(); });
 }
-// Đổi tab/thiết bị: luôn đọc dữ liệu mới nhất của tài khoản khi quay lại trang.
 function resumeCart() {
     if (hasRemoteCart) cart.refresh().catch(error => warnCart('Không tải được giỏ mới nhất: ' + error.message));
     else cart.reload();

@@ -7,7 +7,7 @@ if (PHP_SAPI !== 'cli') {
     exit;
 }
 
-// Repeatable additive upgrade. Old order dates and stock movements remain unknown.
+
 
 function migrate_admin(PDO $db): void
 {

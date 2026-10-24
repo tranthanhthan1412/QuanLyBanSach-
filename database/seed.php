@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-// Presentation fixtures only. Prices and book details are illustrative.
+
 $rows = [
     [1, 'Chiến binh cầu vồng', 'Andrea Hirata', 'van-hoc', 89000, 110000, 'Bán chạy', 4.8, 1250, '9780374533330'],
     [2, 'Cha giàu cha nghèo', 'Robert T. Kiyosaki', 'kinh-te', 125000, 125000, 'Bán chạy', 4.7, 890, '9781612680194'],

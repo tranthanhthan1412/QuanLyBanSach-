@@ -34,7 +34,7 @@ class Controller
             'freeShippingFrom' => config('free_shipping_from'),
             'modules' => [
                 'cart' => versioned_asset('js/cart-store.js'),
-                'forms' => versioned_asset('js/demo.js'),
+                'forms' => versioned_asset('js/forms.js'),
             ],
             'urls' => [
                 'products' => url('products'),

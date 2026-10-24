@@ -24,6 +24,12 @@ final class CheckoutModel
         $order['subtotal'] = array_sum(array_column($order['items'], 'tongTien'));
         $order['tongTien'] = $order['subtotal'];
         $order['total'] = $order['subtotal'] + (float) $order['phiVanChuyen'];
+
+        $stmtReturns = $this->db->prepare('SELECT * FROM yeucaudoitra WHERE maDH = ? ORDER BY maYC DESC');
+        $stmtReturns->execute([$id]);
+        $order['return_requests'] = $stmtReturns->fetchAll();
+        $order['return_request'] = $order['return_requests'][0] ?? null;
+
         return $order;
     }
 
@@ -80,7 +86,6 @@ final class CheckoutModel
             $id = (int) $this->db->lastInsertId();
             $stmt = $this->db->prepare('INSERT INTO chitietdonhang (maDH, maSach, soLuong, tongTien, tenSachLucMua) VALUES (?, ?, ?, ?, ?)');
             foreach ($lines as $line) { $stmt->execute([$id, ...$line]); }
-            // Inventory is deducted by the existing admin confirmation transaction.
             $this->db->commit();
             return $this->find($id, $user['id']);
         } catch (\Throwable $error) {
@@ -93,5 +98,40 @@ final class CheckoutModel
     {
         $stmt = $this->db->prepare('UPDATE donhang SET trangThaiEmail = ? WHERE maDH = ?');
         $stmt->execute([$status, $id]);
+    }
+
+    public function createReturnRequest(int $orderId, int $userId, string $type, string $reason, string $detail): array
+    {
+        $validTypes = ['HoanTien', 'DoiHang'];
+        $validReasons = ['SachLoi', 'GiaoSai', 'HuHong', 'Khac'];
+        if (!in_array($type, $validTypes, true)) {
+            throw new DomainException('Loại yêu cầu không hợp lệ.');
+        }
+        if (!in_array($reason, $validReasons, true)) {
+            throw new DomainException('Lý do đổi trả không hợp lệ.');
+        }
+        if (mb_strlen($detail) < 5 || mb_strlen($detail) > 1000) {
+            throw new DomainException('Vui lòng mô tả chi tiết lý do từ 5 đến 1000 ký tự.');
+        }
+        $order = $this->find($orderId, $userId);
+        if (!$order) {
+            throw new DomainException('Không tìm thấy đơn hàng.');
+        }
+        $statusCode = \App\Models\AdminModel::statusCode($order['trangThai']);
+        if ($statusCode !== 'DaGiao') {
+            throw new DomainException('Chỉ có thể yêu cầu đổi trả đối với đơn hàng đã giao thành công.');
+        }
+        $existing = $this->db->prepare("SELECT maYC FROM yeucaudoitra WHERE maDH = ? AND trangThai IN ('ChoXuLy', 'ChapNhan')");
+        $existing->execute([$orderId]);
+        if ($existing->fetch()) {
+            throw new DomainException('Đơn hàng đã có yêu cầu đổi trả đang được xử lý.');
+        }
+        $refundAmount = (float) $order['total'];
+        $now = (new \DateTimeImmutable('now', new \DateTimeZone('Asia/Ho_Chi_Minh')))->format('Y-m-d H:i:s');
+        $stmt = $this->db->prepare("INSERT INTO yeucaudoitra
+            (maDH, maND, loaiYeuCau, lyDo, chiTiet, soTienHoan, trangThai, ngayTao)
+            VALUES (?, ?, ?, ?, ?, ?, 'ChoXuLy', ?)");
+        $stmt->execute([$orderId, $userId, $type, $reason, $detail, $refundAmount, $now]);
+        return $this->find($orderId, $userId);
     }
 }
