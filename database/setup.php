@@ -30,6 +30,9 @@ try {
     migrate_checkout($db);
     require_once __DIR__ . '/cod-reconciliation-migration.php';
     migrate_cod_reconciliation($db);
+	require_once __DIR__ . '/order-status-notification-migration.php';
+	require_once __DIR__ . '/cart-sync-migration.php';
+	require_once __DIR__ . '/profile-shipping-migration.php';
     $db->beginTransaction();
     $role = $db->prepare('INSERT INTO vaitro (tenVT, moTa) SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM vaitro WHERE tenVT = ?)');
     foreach (['Admin' => 'Quản trị viên', 'User' => 'Khách hàng'] as $name => $description) {

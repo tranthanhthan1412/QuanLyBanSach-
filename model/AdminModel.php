@@ -805,7 +805,7 @@ final class AdminModel
             // Ghi thông báo trong cùng transaction với việc đổi trạng thái.
             // Nếu transaction rollback, không có email nào được xếp hàng.
             $recipient = $this->query(
-                "SELECT COALESCE(NULLIF(dh.emailNguoiNhan, ''), nd.email) AS emailNhan,
+                "SELECT COALESCE(NULLIF(TRIM(dh.emailNhan), ''), nd.email) AS emailNhan,
                         COALESCE(NULLIF(dh.tenNguoiNhan, ''), nd.tenND) AS tenNguoiNhan
                  FROM donhang dh JOIN nguoidung nd ON nd.maND = dh.maND
                  WHERE dh.maDH = ?",

@@ -83,10 +83,9 @@ final class OrderModel
                 dh.maND,
 
 				MAX(dh.tenNguoiNhan) AS tenNguoiNhan,
-				MAX(dh.SDTNguoiNhan) AS SDTNguoiNhan,
-				MAX(dh.emailNguoiNhan) AS emailNguoiNhan,
-				MAX(dh.diaChiGiao) AS diaChiGiao,
-				MAX(dh.phuongThucTT) AS phuongThucTT,
+				MAX(dh.sdtNhan) AS sdtNhan,
+				MAX(dh.emailNhan) AS emailNhan,
+				MAX(dh.diaChiNhan) AS diaChiNhan,
 
 				COALESCE(MAX(dh.phiVanChuyen), 0) AS phiVanChuyen,
 
