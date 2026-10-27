@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
-require dirname(__DIR__) . '/model/database.php';
+require_once dirname(__DIR__) . '/model/database.php';
 
 try {
     $db = (new \Database())->getConnection();
