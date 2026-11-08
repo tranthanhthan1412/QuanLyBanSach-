@@ -42,15 +42,17 @@ Các trang tài khoản và quản trị yêu cầu đăng nhập; trang quản 
 
 ```powershell
 Set-Location C:\xampp\htdocs\QuanLyBanSach
-& C:\xampp\php\php.exe database\set-role.php admin@example.com Admin
+$email = Read-Host "Nhập email đã đăng ký trên website"
+& C:\xampp\php\php.exe database\set-role.php $email Admin
 ```
 
-Thay `admin@example.com` bằng email vừa đăng ký. Đăng xuất rồi đăng nhập lại tài khoản này để mở trang quản trị. Tài khoản mới đăng ký mặc định có vai trò khách hàng; dự án không có tài khoản/mật khẩu mẫu được tạo sẵn.
+Trước đó cần đăng ký tài khoản này trên website. Khi PowerShell hỏi, nhập đúng email đã dùng để đăng ký (không nhập email ví dụ). Đăng xuất rồi đăng nhập lại tài khoản này để mở trang quản trị. Tài khoản mới đăng ký mặc định có vai trò khách hàng; dự án không có tài khoản/mật khẩu mẫu được tạo sẵn.
 
 Để trả tài khoản về vai trò khách hàng, chạy lệnh tương tự với `User`:
 
 ```powershell
-& C:\xampp\php\php.exe database\set-role.php admin@example.com User
+$email = Read-Host "Nhập email tài khoản cần đổi về User"
+& C:\xampp\php\php.exe database\set-role.php $email User
 ```
 
 ## Checklist test nhanh
