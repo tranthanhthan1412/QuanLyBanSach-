@@ -42,17 +42,17 @@ Các trang tài khoản và quản trị yêu cầu đăng nhập; trang quản 
 
 ```powershell
 Set-Location C:\xampp\htdocs\QuanLyBanSach
-$email = Read-Host "Nhập email đã đăng ký trên website"
-& C:\xampp\php\php.exe database\set-role.php $email Admin
+$email = (Read-Host "Nhập email đã đăng ký trên website").Trim()
+& "C:\xampp\php\php.exe" "database\set-role.php" "$email" "Admin"
 ```
 
-Trước đó cần đăng ký tài khoản này trên website. Khi PowerShell hỏi, nhập đúng email đã dùng để đăng ký (không nhập email ví dụ). Đăng xuất rồi đăng nhập lại tài khoản này để mở trang quản trị. Tài khoản mới đăng ký mặc định có vai trò khách hàng; dự án không có tài khoản/mật khẩu mẫu được tạo sẵn.
+Trước đó cần đăng ký tài khoản này trên website. Chạy hai dòng lệnh trong cùng cửa sổ PowerShell; khi được hỏi, nhập đúng email đã dùng để đăng ký. Thành công sẽ hiện `Role updated: <email> -> Admin`. Nếu hiện `Usage`, kiểm tra lại email và chạy lệnh ngay trong cửa sổ vừa nhập email. Nếu hiện `Account not found`, tài khoản chưa được đăng ký trong database đang cấu hình. Đăng xuất rồi đăng nhập lại tài khoản này để mở trang quản trị. Tài khoản mới đăng ký mặc định có vai trò khách hàng; dự án không có tài khoản/mật khẩu mẫu được tạo sẵn.
 
 Để trả tài khoản về vai trò khách hàng, chạy lệnh tương tự với `User`:
 
 ```powershell
 $email = Read-Host "Nhập email tài khoản cần đổi về User"
-& C:\xampp\php\php.exe database\set-role.php $email User
+& "C:\xampp\php\php.exe" "database\set-role.php" "$email" "User"
 ```
 
 ## Checklist test nhanh
@@ -103,6 +103,14 @@ Luồng xử lý chính: `index.php` → `config/routes.php` → `controller/` �
 
 - Kiểm tra Apache và MySQL đang bật trong XAMPP.
 - Nếu trang báo lỗi kết nối, kiểm tra user/mật khẩu MySQL trong `config/database.php` và đảm bảo PHP CLI có PDO MySQL.
+- Nếu vào **Nhập kho** mà gặp trang “BookStore tạm thời chưa sẵn sàng”, hãy bật MySQL rồi chạy lại migration từ thư mục dự án:
+
+  ```powershell
+  Set-Location C:\xampp\htdocs\QuanLyBanSach
+  & C:\xampp\php\php.exe database\setup.php
+  ```
+
+  Nếu setup báo lỗi hoặc trang vẫn chưa hoạt động, xem log Apache tại `C:\xampp\apache\logs\error.log`; trang 503 không hiển thị nguyên nhân chi tiết.
 - Nếu giỏ hàng hoặc đặt hàng không hoạt động, bật JavaScript trên trình duyệt.
 - Chạy lại `database/setup.php` nếu vừa tạo database hoặc cần áp dụng các migration mới. Script giữ lại danh mục hiện có.
 
